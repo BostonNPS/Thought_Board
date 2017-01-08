@@ -1,0 +1,293 @@
+<html>
+<head>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<style>
+div {
+width:300px;
+max-height:35%;
+border:1px black solid;
+position:absolute;
+background:white;
+padding:10px;
+border-radius:10px;
+box-shadow: 2px 2px 2px gray;
+transition:left 5s, top 5s;
+transition-timing-function: linear;
+overflow:hidden;
+}
+
+#body {
+height:100%;
+width:100%;
+display:block;
+position:fixed;
+overflow-x:hidden;
+overflow-y:hidden;
+top:0;
+left:0;
+}
+#plus {
+	display:none;
+    z-index: 1001;
+    height: 2em;
+    width: 2em;
+    background-color: rgb(232, 48, 29);
+    border-radius: 1em;
+    position: fixed;
+    bottom: 0px;
+    right: 0px;
+    text-align: center;
+    margin: 1em;
+    line-height: 2em;
+    font-size: 2em;
+    color: white;
+    font-weight: bolder;
+    text-shadow: -1px -1px 1px rgba(169,169,169,0.5);
+    box-shadow: 2px 2px 20px rgba(0,0,0,.75);
+    animation-duration:1s;
+	animation-timing-function:ease-out;
+	animation-fill-mode: forwards;
+}
+
+@keyframes hidePlus {
+	from{right:0px}
+	to{right:-15em}
+}
+
+@keyframes showPlus {
+	from{right:-15em}
+	to{right:0px}
+}
+
+.hint::before{
+    content: "Share your thoughts \02192";
+    font-size: .5em;
+    position: absolute;
+    right: 5em;
+    bottom: 2em;
+    color: black;
+    line-height: normal;
+    display: inline-block;
+    width: 15em;
+    height: 1em;
+    transform: translateY(50%);
+    /* border: 1px solid black; */
+    text-align: right;
+}
+
+#dialog {
+	position:fixed;
+	z-index:1001;
+	display:block;
+	height:25%;
+	width:100%;
+	top:5%;
+	left:-100%;
+	animation-duration:1s;
+	animation-timing-function:ease-out;
+	animation-fill-mode: forwards;
+}
+
+@keyframes showDialog {
+	from{left:-100%}
+	to{left:0%}
+}
+
+@keyframes hideDialog {
+	from{left:0%}
+	to{left:-100%}
+}
+
+textarea {
+    height: 75%;
+    width: 75%;
+    margin-top: 2.5%;
+    display:block;
+    margin-right: auto;
+    margin-left: auto;
+}
+#btnrow {
+	width:75%;
+	display:block;
+	margin-right:auto;
+	margin-left:auto;
+	
+}
+#question {
+    position: fixed;
+    z-index: 1001;
+    display: block;
+    height: 5%;
+    width: 100%;
+    text-align: center;
+    top: 0;
+    left: 0;
+    background: white;
+    font-size: 2em;
+}
+</style>
+<script src="/socket.io/socket.io.js"></script>
+<script   src="https://code.jquery.com/jquery-3.1.1.min.js"   integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="   crossorigin="anonymous"></script>
+</head>
+
+<body style="overflow:hidden;height:100%;width:100%;margin:0;">
+<span id="question"></span>
+<span id="dialog"><textarea id="response"></textarea><span id="btnrow"><button style="float:right;" onclick='submit()'>Submit</button><button style="float:right;margin-right:1em;" onclick='hideDialog()'>Cancel</button></span></span>
+<span id="body"></span>
+<span id="plus" class="hint" onclick="inputDialog()">+</span>
+<script>
+  var socket = io();
+  var firstload = true;
+  
+socket.on('data', function(json){
+	if(firstload){
+		var query = JSON.parse(json)
+		document.getElementById("question").innerHTML = query.question;
+		var thoughts = query.thoughts
+		for(var x=0;x<thoughts.length;x++)
+		{
+			var div = document.createElement("div")
+			div.innerHTML = thoughts[x].message
+			div.style.left = thoughts[x].x + "%"
+			div.style.top = thoughts[x].y + "%"
+			//div.id = x
+			document.getElementById("body").appendChild(div)
+		}
+		firstload=false;
+	}
+});
+socket.on('animateUpdate', function(json){
+	divs = document.getElementsByTagName("div");
+		var query = JSON.parse(json)
+		var thoughts = query.thoughts
+	for(var x=0;x<thoughts.length;x++)
+	{
+		divs[x].style.left = thoughts[x].x + "%"
+		divs[x].style.top = thoughts[x].y + "%"
+	}
+});
+  
+  /*
+ socket.on('data', function(json){
+	 if(firstload){
+ var thoughts = JSON.parse(json)
+ document.getElementById("body").innerHTML=''
+for(var x=0;x<thoughts.length;x++)
+{
+	var div = document.createElement("div")
+	div.innerHTML = thoughts[x].message
+	var rand = Math.random()
+	var randY = Math.random()
+	div.style.fontSize = rand + .5 + "em"
+	div.style.zIndex = rand * 100
+	div.style.left = window.innerWidth * rand
+	div.style.top = window.innerHeight * randY
+	div.id = x
+	document.getElementById("body").appendChild(div)
+	checkCollision(x)
+}
+firstload = false;
+}
+
+ });
+*/
+socket.on('newThought',function(json){
+	var thoughts = JSON.parse(json)
+	var div = document.createElement("div")
+	div.innerHTML = thoughts.message
+	//var rand = Math.random()
+	//var randY = Math.random()
+	//div.style.fontSize = rand + .5 + "em"
+	//div.style.zIndex = rand * 1000
+	//div.style.left = window.innerWidth * rand
+	//div.style.top = window.innerHeight * randY
+	div.style.left = thoughts.x + "%"
+	div.style.top = thoughts.y + "%"
+	//div.id = document.getElementsByTagName("div").length + 1
+	document.getElementById("body").appendChild(div)
+});
+
+function replaceDiv(x)
+{
+	var rand = Math.random()
+	var randY = Math.random()
+	var div = document.getElementById(x)
+	div.style.left = window.innerWidth * rand
+	div.style.top = window.innerHeight * randY
+	checkCollision(x)
+}
+
+function checkCollision(x)
+{
+	var divs = document.getElementsByTagName("div")
+	//console.log(divs)
+	for(var y=0;y<divs.length;y++)
+	{
+		if((divs[x].offsetLeft < 10) || (divs[x].offsetTop < 10) || ((divs[x].offsetLeft + divs[x].offsetWidth) > (window.innerWidth-10)) || ((divs[x].offsetTop + divs[x].offsetHeight) > (window.innerHeight-10)))
+		{
+			replaceDiv(x)
+		}
+		if((divs[y].offsetLeft < divs[x].offsetLeft) && (divs[x].offsetLeft < (divs[y].offsetLeft + divs[y].offsetWidth)) && (divs[y].offsetTop < divs[x].offsetTop) && (divs[x].offsetTop < (divs[y].offsetTop + divs[y].offsetHeight)))
+		{
+			console.log("top left of " + x + " is within box of " + y)
+			divs[x].style.left = divs[x].offsetLeft - divs[y].offsetLeft + divs[y].offsetWidth;
+			divs[x].style.top = divs[x].offsetTop - divs[y].offsetTop + divs[y].offsetHeight;
+			checkCollision(x)
+		}
+		else{
+			if((divs[y].offsetLeft < divs[x].offsetLeft + divs[x].offsetWidth) && (divs[x].offsetLeft + divs[x].offsetWidth < (divs[y].offsetLeft + divs[y].offsetWidth)) && (divs[y].offsetTop < divs[x].offsetTop) && (divs[x].offsetTop < (divs[y].offsetTop + divs[y].offsetHeight)))
+			{
+				console.log("top right of " + x + " is within box of " + y)
+				divs[x].style.left = divs[x].offsetLeft - divs[y].offsetLeft + divs[y].offsetWidth;
+				divs[x].style.top = divs[x].offsetTop - divs[y].offsetTop + divs[y].offsetHeight;
+				checkCollision(x)
+			}
+			else{
+				if((divs[y].offsetLeft < divs[x].offsetLeft) && (divs[x].offsetLeft < (divs[y].offsetLeft + divs[y].offsetWidth)) && (divs[y].offsetTop < divs[x].offsetTop + divs[x].offsetHeight) && (divs[x].offsetTop + divs[x].offsetHeight < (divs[y].offsetTop + divs[y].offsetHeight)))
+				{
+					console.log("bottom left of " + x + " is within box of " + y)
+					divs[x].style.left = divs[x].offsetLeft - divs[y].offsetLeft + divs[y].offsetWidth;
+					divs[x].style.top = divs[x].offsetTop - divs[y].offsetTop + divs[y].offsetHeight;
+					checkCollision(x)
+				}
+				else{
+					if((divs[y].offsetLeft < divs[x].offsetLeft + divs[x].offsetWidth) && (divs[x].offsetLeft + divs[x].offsetWidth < (divs[y].offsetLeft + divs[y].offsetWidth)) && (divs[y].offsetTop < divs[x].offsetTop + divs[x].offsetHeight) && (divs[x].offsetTop + divs[x].offsetHeight < (divs[y].offsetTop + divs[y].offsetHeight)))
+					{
+						console.log("bottom right of " + x + " is within box of " + y)
+						divs[x].style.left = divs[x].offsetLeft - divs[y].offsetLeft + divs[y].offsetWidth;
+						divs[x].style.top = divs[x].offsetTop - divs[y].offsetTop + divs[y].offsetHeight;
+						checkCollision(x)
+					}
+				}
+			}
+		}
+	}
+}
+
+if(window.location.search == "?kiosk")
+{
+	document.getElementById("plus").style.display = "block"
+}
+function inputDialog(){
+	//document.getElementById("plus").className = "";
+	//document.getElementById("plus").innerHTML = "<textarea id='response'></textarea><button onclick='submit()'>Submit</button>"
+	document.getElementById("plus").style.animationName = "hidePlus";
+	document.getElementById("dialog").style.animationName = "showDialog";
+}
+function submit() {
+	if(document.getElementById("response").value)
+	{
+		socket.emit("submit",{message:document.getElementById("response").value})
+		hideDialog();
+	}
+}
+
+function hideDialog() {
+	document.getElementById("plus").style.animationName = "showPlus";
+	document.getElementById("dialog").style.animationName = "hideDialog";
+	document.getElementById("response").value = "";
+}
+
+</script>
+</body>
+</html>
