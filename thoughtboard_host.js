@@ -26,9 +26,9 @@ function animateUpdate() {
 		else
 			query.thoughts[x].y = query.thoughts[x].y + (query.thoughts[x].vector.y * .25)
 			
-		if(query.thoughts[x].x < -25 || query.thoughts[x].x > 125)
+		if(query.thoughts[x].x < -10 || query.thoughts[x].x > 110)
 			query.thoughts[x].vector.x = query.thoughts[x].vector.x * -1;
-		if(query.thoughts[x].y < -15 || query.thoughts[x].y > 115)
+		if(query.thoughts[x].y < -10 || query.thoughts[x].y > 110)
 			query.thoughts[x].vector.y = query.thoughts[x].vector.y * -1;
 	}
 	io.emit('animateUpdate',JSON.stringify(query))
@@ -49,10 +49,10 @@ io.on('connection', function(socket){
 	io.emit('data',JSON.stringify(query))
 	socket.on('submit', function(submission){
 		var thought = {vector:{},message:submission.message}
-		thought.x = (Math.random() * 100)
-		thought.y = (Math.random() * 100)
-		thought.vector.x = Math.random()
-		thought.vector.y = Math.random()
+		thought.x = (Math.random() * 10) + 40
+		thought.y = (Math.random() * 10) + 40
+		thought.vector.x = Math.random() * 10
+		thought.vector.y = Math.random() * 10
 		if(Math.random() < .5)
 		{
 			thought.vector.x = thought.vector.x * -1
