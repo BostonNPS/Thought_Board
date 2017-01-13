@@ -1,6 +1,9 @@
 <html>
 <head>
 <meta name=viewport content="width=device-width, initial-scale=1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
 <style>
 div {
 width:300px;
@@ -38,8 +41,9 @@ left:0;
     right: 0px;
     text-align: center;
     margin: 1em;
-    line-height: 2em;
+    line-height: 1.875em;
     font-size: 2em;
+    font-family:verdana;
     color: white;
     font-weight: bolder;
     text-shadow: -1px -1px 1px rgba(169,169,169,0.5);
@@ -108,7 +112,7 @@ left:0;
 	to{left:-100%}
 }
 
-input {
+input[type="text"] {
     height: 3em;
     width: 100%;
     margin-top: .5em;
@@ -142,11 +146,12 @@ input {
     
 }
 @keyframes pop {
-	50% { transform:scale(0.5);}
+	0% {transform:scale(4);}
+	75% { transform:scale(0.5);}
 	100% { transform:scale(1);}
 	
 }
-button {
+.button {
 	
 		display: inline-block;
 	background-color: #f5f5f5;
@@ -203,9 +208,9 @@ button {
 
 <body style="overflow:hidden;height:100%;width:100%;margin:0;font-family:sans-serif;">
 <span id="question"></span>
-<span id="dialog"><input type="text" id="response"></input><span class="btnrow">Type your own response to the question and post it to the wall by clicking "Submit".<br>Please promote discussion by keeping responses appropriate for all audiences.</span><span class="btnrow"><button class="blue" style="float:right;" onclick='submit()'>Submit</button><button style="float:right;margin-right:1em;" onclick='hideDialog()' class="red">Cancel</button></span></span>
+<span id="dialog"><form><input type="text" id="response"></input><span class="btnrow">Type your own response to the question and post it to the wall by clicking "Submit".<br>Please promote discussion by keeping responses appropriate for all audiences.</span><span class="btnrow"><input id="submit" type="submit" class="button blue" style="float:right;"><button id="cancel" style="float:right;margin-right:1em;" onclick='hideDialog()' class="button red">Cancel</button></span></form></span>
 <span id="body"></span>
-<span id="plus" class="hint" onclick="inputDialog()">+</span>
+<span id="plus" class="hint" onclick="showDialog()">+</span>
 <script>
   var socket = io();
   var firstload = true;
@@ -237,118 +242,35 @@ socket.on('animateUpdate', function(json){
 		divs[x].style.top = thoughts[x].y + "%"
 	}
 });
-  
-  /*
- socket.on('data', function(json){
-	 if(firstload){
- var thoughts = JSON.parse(json)
- document.getElementById("body").innerHTML=''
-for(var x=0;x<thoughts.length;x++)
-{
-	var div = document.createElement("div")
-	div.innerHTML = thoughts[x].message
-	var rand = Math.random()
-	var randY = Math.random()
-	div.style.fontSize = rand + .5 + "em"
-	div.style.zIndex = rand * 100
-	div.style.left = window.innerWidth * rand
-	div.style.top = window.innerHeight * randY
-	div.id = x
-	document.getElementById("body").appendChild(div)
-	checkCollision(x)
-}
-firstload = false;
-}
-
- });
-*/
 socket.on('newThought',function(json){
 	var thoughts = JSON.parse(json)
 	var div = document.createElement("div")
 	div.innerHTML = thoughts.message
-	//var rand = Math.random()
-	//var randY = Math.random()
-	//div.style.fontSize = rand + .5 + "em"
-	//div.style.zIndex = rand * 1000
-	//div.style.left = window.innerWidth * rand
-	//div.style.top = window.innerHeight * randY
 	div.style.left = thoughts.x + "%"
 	div.style.top = thoughts.y + "%"
-	//div.id = document.getElementsByTagName("div").length + 1
-	div.style.animationDuration = "1s"
+	div.style.animationDuration = "2s"
 	div.style.animationName = "pop"
 	document.getElementById("body").appendChild(div)
 });
 
-function replaceDiv(x)
-{
-	var rand = Math.random()
-	var randY = Math.random()
-	var div = document.getElementById(x)
-	div.style.left = window.innerWidth * rand
-	div.style.top = window.innerHeight * randY
-	checkCollision(x)
-}
-
-function checkCollision(x)
-{
-	var divs = document.getElementsByTagName("div")
-	//console.log(divs)
-	for(var y=0;y<divs.length;y++)
-	{
-		if((divs[x].offsetLeft < 10) || (divs[x].offsetTop < 10) || ((divs[x].offsetLeft + divs[x].offsetWidth) > (window.innerWidth-10)) || ((divs[x].offsetTop + divs[x].offsetHeight) > (window.innerHeight-10)))
-		{
-			replaceDiv(x)
-		}
-		if((divs[y].offsetLeft < divs[x].offsetLeft) && (divs[x].offsetLeft < (divs[y].offsetLeft + divs[y].offsetWidth)) && (divs[y].offsetTop < divs[x].offsetTop) && (divs[x].offsetTop < (divs[y].offsetTop + divs[y].offsetHeight)))
-		{
-			console.log("top left of " + x + " is within box of " + y)
-			divs[x].style.left = divs[x].offsetLeft - divs[y].offsetLeft + divs[y].offsetWidth;
-			divs[x].style.top = divs[x].offsetTop - divs[y].offsetTop + divs[y].offsetHeight;
-			checkCollision(x)
-		}
-		else{
-			if((divs[y].offsetLeft < divs[x].offsetLeft + divs[x].offsetWidth) && (divs[x].offsetLeft + divs[x].offsetWidth < (divs[y].offsetLeft + divs[y].offsetWidth)) && (divs[y].offsetTop < divs[x].offsetTop) && (divs[x].offsetTop < (divs[y].offsetTop + divs[y].offsetHeight)))
-			{
-				console.log("top right of " + x + " is within box of " + y)
-				divs[x].style.left = divs[x].offsetLeft - divs[y].offsetLeft + divs[y].offsetWidth;
-				divs[x].style.top = divs[x].offsetTop - divs[y].offsetTop + divs[y].offsetHeight;
-				checkCollision(x)
-			}
-			else{
-				if((divs[y].offsetLeft < divs[x].offsetLeft) && (divs[x].offsetLeft < (divs[y].offsetLeft + divs[y].offsetWidth)) && (divs[y].offsetTop < divs[x].offsetTop + divs[x].offsetHeight) && (divs[x].offsetTop + divs[x].offsetHeight < (divs[y].offsetTop + divs[y].offsetHeight)))
-				{
-					console.log("bottom left of " + x + " is within box of " + y)
-					divs[x].style.left = divs[x].offsetLeft - divs[y].offsetLeft + divs[y].offsetWidth;
-					divs[x].style.top = divs[x].offsetTop - divs[y].offsetTop + divs[y].offsetHeight;
-					checkCollision(x)
-				}
-				else{
-					if((divs[y].offsetLeft < divs[x].offsetLeft + divs[x].offsetWidth) && (divs[x].offsetLeft + divs[x].offsetWidth < (divs[y].offsetLeft + divs[y].offsetWidth)) && (divs[y].offsetTop < divs[x].offsetTop + divs[x].offsetHeight) && (divs[x].offsetTop + divs[x].offsetHeight < (divs[y].offsetTop + divs[y].offsetHeight)))
-					{
-						console.log("bottom right of " + x + " is within box of " + y)
-						divs[x].style.left = divs[x].offsetLeft - divs[y].offsetLeft + divs[y].offsetWidth;
-						divs[x].style.top = divs[x].offsetTop - divs[y].offsetTop + divs[y].offsetHeight;
-						checkCollision(x)
-					}
-				}
-			}
-		}
-	}
-}
-
-if(window.location.search == "?kiosk")
+if(window.location.search == "?kiosk") //show input button if on iPad, input kiosk, etc.
 {
 	document.getElementById("plus").style.display = "block"
 }
-function inputDialog(){
-	//document.getElementById("plus").className = "";
-	//document.getElementById("plus").innerHTML = "<textarea id='response'></textarea><button onclick='submit()'>Submit</button>"
+function showDialog(){
 	document.getElementById("plus").style.animationName = "hidePlus";
 	document.getElementById("dialog").style.animationName = "showDialog";
-	document.getElementById("response").focus()
+	setTimeout(function(){document.getElementById("response").focus()},1000)
+}
+function hideDialog() {
+	document.getElementById("response").blur(); //hide ios keyboard
+	window.scrollTo(0,0);
+	document.getElementById("plus").style.animationName = "showPlus";
+	document.getElementById("dialog").style.animationName = "hideDialog";
+	document.getElementById("response").value = "";
 }
 function submit() {
+	document.getElementById("response").blur(); //hide ios keyboard when user hits "go" in keyboard
 	if(document.getElementById("response").value)
 	{
 		socket.emit("submit",{message:document.getElementById("response").value})
@@ -356,12 +278,15 @@ function submit() {
 	}
 }
 
-function hideDialog() {
-	document.getElementById("plus").style.animationName = "showPlus";
-	document.getElementById("dialog").style.animationName = "hideDialog";
-	document.getElementById("response").value = "";
-}
-
+document.getElementsByTagName("form")[0].addEventListener("submit", function (e) {e.preventDefault();submit()});
+document.getElementById("cancel").addEventListener("touchstart", function (e) {
+	e.preventDefault();
+	hideDialog();
+});
+document.getElementById("submit").addEventListener("touchstart", function (e) {
+	e.preventDefault();
+	submit();
+});
 </script>
 </body>
 </html>

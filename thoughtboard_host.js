@@ -40,10 +40,10 @@ setInterval(function(){animateUpdate()},5000);
 app.get('/app', function(req, res){
   res.sendFile(__dirname + '/thoughtboard_client.html');
 });
-/*
-app.get('/socket.io.js', function(req, res){
-  res.sendfile(__dirname + 'socket.io.js');
-});*/
+
+app.get('/manifest.json', function(req, res){
+  res.sendfile(__dirname + 'manifest.json');
+});
 
 io.on('connection', function(socket){
 	io.emit('data',JSON.stringify(query))
