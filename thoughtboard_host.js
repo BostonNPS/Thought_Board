@@ -2,6 +2,8 @@ var express = require('express');
 var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
+var MongoClient = require("mongodb").MongoClient;
+var DBurl = "mongodb://localhost:27017/thoughtboard";
 
 var query = {question:"What does the Constitution Say?",thoughts:[
 {x:5,y:75,vector:{x:1,y:7.1},height:"10%",width:"10%",message:"We the People of the United States, in Order to form a more perfect Union, establish Justice, insure domestic Tranquility, provide for the common defence, promote the general Welfare, and secure the Blessings of Liberty to ourselves and our Posterity, do ordain and establish this Constitution for the United States of America."},
@@ -11,6 +13,64 @@ var query = {question:"What does the Constitution Say?",thoughts:[
 {x:5,y:75,vector:{x:6.81,y:-7.1},height:"10%",width:"20%",message:"Representatives and direct Taxes shall be apportioned among the several States which may be included within this Union, according to their respective Numbers, which shall be determined by adding to the whole Number of free Persons, including those bound to Service for a Term of Years, and excluding Indians not taxed, three fifths of all other Persons."}
 ]}
 
+
+
+function getQAs(callback) {
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		collection.find({}).toArray(function(err,docs){
+			if(err)
+				console.log(err);
+			callback(docs);
+		});
+		db.close();
+	});
+}
+
+function newQuestion(q,callback) { //q is a valid document object to insert into collection
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		var success = true
+		collection.insertOne(q,function(err,docs){
+			if(err)
+				console.log(err);
+				success = false
+			callback(success);
+		});
+		db.close();
+	});
+}
+
+function newAnswer(q,a,ts,callback) { //q is the querying/find object to select the question. a is the new answer to insert in list. ts is timestamp.
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		var success = true
+		collection.update(q,{"$addToSet":{"thoughts" : {"message" : a ,"timeStamp" : ts}}},function(err,docs){
+			if(err)
+				console.log(err);
+				success = false
+			callback(success);
+		});
+		db.close();
+	});
+}
+
+function getCoordVect(thought)
+{
+	thought.x = (Math.random() * 100)
+	thought.y = (Math.random() * 100)
+	thought.vector.x = Math.random() * 10
+	thought.vector.y = Math.random() * 10
+	if(Math.random() < .5)
+	{
+		thought.vector.x = thought.vector.x * -1
+	}
+	if(Math.random() < .5)
+	{
+		thought.vector.y = thought.vector.y * -1
+	}
+	return thought;
+}
 
 function animateUpdate() {
 	for(var x=0;x<query.thoughts.length;x++)
@@ -36,10 +96,21 @@ function animateUpdate() {
 	
 }
 
-setInterval(function(){animateUpdate()},5000);
+
+//on start, get on Mongo DB and get latest questions/answers, create local object with location and animation vector data as well as question/answer data
+getQAs(function(QAs){
+	var curQA = QAs[QAs.length -1]//temporary...just use latest question/answer
+	console.log("Using question id " + curQA._id + ". Question: " + curQA.question)
+	query = {"question":curQA.question,"_id":curQA._id,"thoughts":[]};
+	for(x in curQA.thoughts)
+	{
+		query.thoughts.push(getCoordVect({vector:{},message:curQA.thoughts[x].message}))
+	}
+	setInterval(function(){animateUpdate()},5000);
+});
 
 app.get('/app', function(req, res){
-  res.sendFile(__dirname + '/thoughtboard_client.html');
+	res.sendFile(__dirname + '/thoughtboard_client.html');
 });
 
 app.use(express.static(__dirname));
@@ -47,7 +118,8 @@ app.use(express.static(__dirname));
 io.on('connection', function(socket){
 	io.emit('data',JSON.stringify(query))
 	socket.on('submit', function(submission){
-		var thought = {vector:{},message:submission.message}
+		var thought = getCoordVect({vector:{},message:submission.message})
+		/*
 		thought.x = (Math.random() * 10) + 40
 		thought.y = (Math.random() * 10) + 40
 		thought.vector.x = Math.random() * 10
@@ -60,9 +132,12 @@ io.on('connection', function(socket){
 		{
 			thought.vector.y = thought.vector.y * -1
 		}
+		* */
 		console.log(thought)
-		query.thoughts.push(thought);
-		io.emit('newThought',JSON.stringify(thought))
+		newAnswer({"_id":query._id},submission.message,new Date(),function(){
+			query.thoughts.push(thought);
+			io.emit('newThought',JSON.stringify(thought))
+		});
 	});
 });
 
