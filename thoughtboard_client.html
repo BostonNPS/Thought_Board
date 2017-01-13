@@ -204,6 +204,7 @@ input[type="text"] {
 }
 </style>
 <script src="/socket.io/socket.io.js"></script>
+<script src="/twemoji/twemoji.min.js"></script>
 </head>
 
 <body style="overflow:hidden;height:100%;width:100%;margin:0;font-family:sans-serif;">
@@ -223,7 +224,7 @@ socket.on('data', function(json){
 		for(var x=0;x<thoughts.length;x++)
 		{
 			var div = document.createElement("div")
-			div.innerHTML = thoughts[x].message
+			div.innerHTML = twemoji.parse(thoughts[x].message)
 			div.style.left = thoughts[x].x + "%"
 			div.style.top = thoughts[x].y + "%"
 			//div.id = x
@@ -245,7 +246,7 @@ socket.on('animateUpdate', function(json){
 socket.on('newThought',function(json){
 	var thoughts = JSON.parse(json)
 	var div = document.createElement("div")
-	div.innerHTML = thoughts.message
+	div.innerHTML = twemoji.parse(thoughts.message);
 	div.style.left = thoughts.x + "%"
 	div.style.top = thoughts.y + "%"
 	div.style.animationDuration = "2s"
