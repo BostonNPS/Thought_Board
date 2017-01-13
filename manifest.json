@@ -1,0 +1,7 @@
+{
+	"short_name":"Thought Board",
+	"name":"Thought Board",
+	"display":"standalone",
+	"start_url":"/app"
+	"orientation":"landscape"
+	}
