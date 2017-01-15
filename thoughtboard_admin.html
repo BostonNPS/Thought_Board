@@ -1,0 +1,135 @@
+<html>
+<head>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script src="jquery.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/twemoji/twemoji.min.js"></script>
+<style>
+table {
+	border: 1px solid black;
+	width:100%;
+}
+tr:nth-child(even) {
+	background: lightblue;
+}
+
+.activeQ {
+	background: lightgoldenrodyellow;
+}
+
+#plus {
+	display:block;
+    z-index: 1001;
+    height: 2em;
+    width: 2em;
+    background-color: rgb(232, 48, 29);
+    border-radius: 1em;
+    position: fixed;
+    bottom: 0px;
+    right: 0px;
+    text-align: center;
+    margin: 1em;
+    line-height: 1.875em;
+    font-size: 2em;
+    font-family:verdana;
+    color: white;
+    font-weight: bolder;
+    text-shadow: -1px -1px 1px rgba(169,169,169,0.5);
+    box-shadow: 2px 2px 20px rgba(0,0,0,.75);
+}
+</style>
+</head>
+<body>
+	<h1>Admin</h1>
+	<div id="qaTable"></div>
+	<span id="plus" onclick="addQuestion()">+</span>
+<script>
+	var socket = io();
+	$(document).ready(function(){
+		getData(function(data){dispData(data)});
+	});
+	function getData(callback) {
+		$.ajax({
+			dataType:"json",
+			url:"/admin/data",
+			success: function(data){callback(data)}
+			});
+	}
+	function dispData(data)
+	{
+		$("#qaTable").empty();
+		for(x in data)
+		{
+			var table = document.createElement("table")
+			if(data[x].active && data[x].active === "true")
+			{
+				table.className = "activeQ"
+				$(table).append("<tr><th><em style='color:red;font-weight:bold;'>Active Question</em></th><th>" + data[x].question + "</th><th>" + new Date(data[x].date) + "</td></tr>")
+			}
+			else
+			{
+				$(table).append("<tr><th><button onclick='activate(&quot;" + data[x]._id + "&quot;)'>Activate Question</button></th><th>" + data[x].question + "</th><th>" + new Date(data[x].date) + "</td></tr>")
+			}
+			$(table).append("<tr><th></th><th>Answers</th><th>Timestamp</td></tr>")
+			for(a in data[x].thoughts)
+			{
+				$(table).append("<tr><td><button onclick='edit(&quot;" + data[x].thoughts[a]._id + "&quot;)'>Edit</button><button onclick='del(&quot;" + data[x].thoughts[a]._id + "&quot;)'>Delete</button></td><td id=" + data[x].thoughts[a]._id + ">" + data[x].thoughts[a].message + "</td><td>" + new Date(data[x].thoughts[a].timeStamp) + "</td></tr>")
+			}
+			$("#qaTable").prepend(table)
+		}
+	}
+	function edit(aID)
+	{
+		var msg = prompt("Enter edited answer", document.getElementById(aID).innerHTML)
+		$.ajax({
+			url:"/admin/edit?id=" + aID + "&message=" + msg,
+			success:function(){
+					getData(function(data){
+						dispData(data)
+					});	
+				}
+			})
+	}
+	function del(aID)
+	{
+		var conf = confirm("Are you sure you want to delete this answer?")
+		if(conf == true)
+		{
+		$.ajax({
+			url:"/admin/delete?id=" + aID,
+			success:function(){
+					getData(function(data){
+						dispData(data)
+					});	
+				}
+			})
+		}
+	}
+	function addQuestion()
+	{
+		var q = prompt("Enter a new Question")
+		$.ajax({
+			url:"/admin/add?q=" + q,
+			success:function(){
+					getData(function(data){
+						dispData(data)
+					});	
+				}
+			})
+	}
+	function activate(id)
+	{
+		$.ajax({
+			url:"/admin/activate?id=" + id,
+			success:function(){
+					getData(function(data){
+						dispData(data)
+					});	
+				}
+			})
+	}
+</script>
+</body>
+</html>

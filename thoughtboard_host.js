@@ -3,7 +3,10 @@ var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 var MongoClient = require("mongodb").MongoClient;
+var ObjectID = require("mongodb").ObjectID;
 var DBurl = "mongodb://localhost:27017/thoughtboard";
+
+var curQA = ''
 
 var query = {question:"What does the Constitution Say?",thoughts:[
 {x:5,y:75,vector:{x:1,y:7.1},height:"10%",width:"10%",message:"We the People of the United States, in Order to form a more perfect Union, establish Justice, insure domestic Tranquility, provide for the common defence, promote the general Welfare, and secure the Blessings of Liberty to ourselves and our Posterity, do ordain and establish this Constitution for the United States of America."},
@@ -27,15 +30,62 @@ function getQAs(callback) {
 	});
 }
 
+function getActiveQA(callback) {
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		collection.find({"active":"true"}).toArray(function(err,activeQA){
+			console.log(activeQA)
+			if(activeQA.length == 1)
+				callback(activeQA[0]);
+			else {
+				getQAs(function(allQAs){
+					console.log(allQAs)
+					setActiveQA(allQAs[allQAs.length - 1]._id,function(){
+						callback(allQAs[allQAs.length - 1]);
+					});
+				});
+			}
+		});
+		db.close();
+	});
+}
+
+function setActiveQA(id,callback) {
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		collection.updateMany({},{"$set": {"active":"false"}},function(err,results){
+			collection.update({"_id" :  new ObjectID(id)},{"$set": {"active":"true"}},function(err,results){
+					callback();
+			});
+		});
+	});
+}
+
+function getQA(q,callback) { //q is a valid document object to filter by....like {"question":"xxxx"}
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		collection.find(q).toArray(function(err,docs){
+			if(err)
+				console.log(err);
+			callback(docs);
+		});
+		db.close();
+	});
+}
+
 function newQuestion(q,callback) { //q is a valid document object to insert into collection
 	MongoClient.connect(DBurl, function(err,db){
 		var collection = db.collection("QAs");
-		var success = true
 		collection.insertOne(q,function(err,docs){
 			if(err)
+			{
 				console.log(err);
-				success = false
-			callback(success);
+				callback(false);
+			}
+			else
+			{
+				callback(q);
+			}
 		});
 		db.close();
 	});
@@ -45,11 +95,44 @@ function newAnswer(q,a,ts,callback) { //q is the querying/find object to select 
 	MongoClient.connect(DBurl, function(err,db){
 		var collection = db.collection("QAs");
 		var success = true
-		collection.update(q,{"$addToSet":{"thoughts" : {"message" : a ,"timeStamp" : ts}}},function(err,docs){
+		collection.update(q,{"$addToSet":{"thoughts" : {"message" : a ,"timeStamp" : ts, "_id" : new ObjectID()}}},function(err,docs){
 			if(err)
+			{
 				console.log(err);
-				success = false
+				success = false;
+			}
 			callback(success);
+		});
+		db.close();
+	});
+}
+
+function editAnswer(id,message,callback) { //use id of response plus new message
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		var success = true
+		collection.updateOne({"thoughts._id" : new ObjectID(id)},{"$set":{"thoughts.$.message":message}},function(err,results){
+			if(err)
+			{
+				console.log(err);
+				success = false;
+			}
+			callback(results);
+		});
+		db.close();
+	});
+}
+function deleteAnswer(id,callback) { //use id of response plus new message
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		var success = true
+		collection.updateMany({},{"$pull":{"thoughts":{"_id":new ObjectID(id)}}},function(err,results){
+			if(err)
+			{
+				console.log(err);
+				success = false;
+			}
+			callback(results);
 		});
 		db.close();
 	});
@@ -87,9 +170,9 @@ function animateUpdate() {
 		else
 			query.thoughts[x].y = query.thoughts[x].y + (query.thoughts[x].vector.y * .25)
 			
-		if(query.thoughts[x].x < -10 || query.thoughts[x].x > 110)
+		if(query.thoughts[x].x < -5 || query.thoughts[x].x > 105)
 			query.thoughts[x].vector.x = query.thoughts[x].vector.x * -1;
-		if(query.thoughts[x].y < -10 || query.thoughts[x].y > 110)
+		if(query.thoughts[x].y < -5 || query.thoughts[x].y > 105)
 			query.thoughts[x].vector.y = query.thoughts[x].vector.y * -1;
 	}
 	io.emit('animateUpdate',JSON.stringify(query))
@@ -98,19 +181,69 @@ function animateUpdate() {
 
 
 //on start, get on Mongo DB and get latest questions/answers, create local object with location and animation vector data as well as question/answer data
-getQAs(function(QAs){
-	var curQA = QAs[QAs.length -1]//temporary...just use latest question/answer
-	console.log("Using question id " + curQA._id + ". Question: " + curQA.question)
-	query = {"question":curQA.question,"_id":curQA._id,"thoughts":[]};
-	for(x in curQA.thoughts)
+
+function setupQuestionAnswers(QA) {
+getActiveQA(function(QA){
+	console.log("Using question id " + QA._id + ". Question: " + QA.question)
+	query = {"question":QA.question,"_id":QA._id,"thoughts":[]};
+	for(x in QA.thoughts)
 	{
-		query.thoughts.push(getCoordVect({vector:{},message:curQA.thoughts[x].message}))
+		query.thoughts.push(getCoordVect({vector:{},message:QA.thoughts[x].message}))
 	}
-	setInterval(function(){animateUpdate()},5000);
+	io.emit('data',JSON.stringify(query))
 });
+}
+setupQuestionAnswers();
+setInterval(function(){animateUpdate()},5000);
 
 app.get('/app', function(req, res){
 	res.sendFile(__dirname + '/thoughtboard_client.html');
+});
+
+app.get('/admin/:name', function(req, res){
+	switch(req.params.name) {
+		case 'data':
+			getQAs(function(docs){
+				res.json(docs)
+			});
+			break;
+		case 'add':
+			var now = new Date();
+			newQuestion({"question":req.query.q,"date":now,"active":"false"},function(success){
+				if(success)
+				{
+					getQA(success,function(docs){
+						res.json(docs[0])
+					});
+				}
+			});
+			break;
+		case 'edit':
+			console.log(req.query);
+			editAnswer(req.query.id,req.query.message,function(results){
+					res.send(results);
+					setupQuestionAnswers();
+			})
+			break;
+		case 'delete':
+			console.log(req.query);
+			deleteAnswer(req.query.id,function(results){
+					res.send(results);
+					setupQuestionAnswers();
+			})
+			break;
+		case 'activate':
+			console.log(req.query);
+			setActiveQA(req.query.id,function(results){
+					res.send(results);
+					setupQuestionAnswers();
+			})
+			break;
+	}
+});
+
+app.get('/admin', function(req, res){
+	res.sendFile(__dirname + '/thoughtboard_admin.html');
 });
 
 app.use(express.static(__dirname));
