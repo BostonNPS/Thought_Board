@@ -170,9 +170,9 @@ function animateUpdate() {
 		else
 			query.thoughts[x].y = query.thoughts[x].y + (query.thoughts[x].vector.y * .25)
 			
-		if(query.thoughts[x].x < -5 || query.thoughts[x].x > 105)
+		if(query.thoughts[x].x < -2 || query.thoughts[x].x > 102)
 			query.thoughts[x].vector.x = query.thoughts[x].vector.x * -1;
-		if(query.thoughts[x].y < -5 || query.thoughts[x].y > 105)
+		if(query.thoughts[x].y < 0 || query.thoughts[x].y > 100)
 			query.thoughts[x].vector.y = query.thoughts[x].vector.y * -1;
 	}
 	io.emit('animateUpdate',JSON.stringify(query))
