@@ -5,9 +5,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
 <style>
-div {
+div.thought {
 width:300px;
 max-height:35%;
+transform:translate(-50%,-50%);
 /*border:1px black solid;*/
 position:absolute;
 background:white;
@@ -148,9 +149,9 @@ input[type="text"] {
     
 }
 @keyframes pop {
-	0% {transform:scale(4);}
-	75% { transform:scale(0.5);}
-	100% { transform:scale(1);}
+	0% {transform:scale(4) translate(-50%,-50%);}
+	75% { transform:scale(0.5) translate(-50%,-50%);}
+	100% { transform:scale(1) translate(-50%,-50%);}
 	
 }
 .button {
@@ -216,28 +217,24 @@ input[type="text"] {
 <span id="plus" class="hint" onclick="showDialog()">+</span>
 <script>
   var socket = io();
-  var firstload = true;
   
 socket.on('data', function(json){
-	//if(firstload){
-		document.getElementById("body").innerHTML = '';
-		var query = JSON.parse(json)
-		document.getElementById("question").innerHTML = query.question;
-		var thoughts = query.thoughts
-		for(var x=0;x<thoughts.length;x++)
-		{
-			var div = document.createElement("div")
-			div.innerHTML = twemoji.parse(thoughts[x].message)
-			div.style.left = thoughts[x].x + "%"
-			div.style.top = thoughts[x].y + "%"
-			//div.id = x
-			document.getElementById("body").appendChild(div)
-		}
-		firstload=false;
-	//}
+	document.getElementById("body").innerHTML = '';
+	var query = JSON.parse(json)
+	document.getElementById("question").innerHTML = query.question;
+	var thoughts = query.thoughts
+	for(var x=0;x<thoughts.length;x++)
+	{
+		var div = document.createElement("div");
+		div.innerHTML = twemoji.parse(thoughts[x].message);
+		div.style.left = thoughts[x].x + "%";
+		div.style.top = thoughts[x].y + "%";
+		div.className = "thought";
+		document.getElementById("body").appendChild(div);
+	}
 });
 socket.on('animateUpdate', function(json){
-	divs = document.getElementsByTagName("div");
+	divs = document.getElementsByClassName("thought");
 		var query = JSON.parse(json)
 		var thoughts = query.thoughts
 	for(var x=0;x<thoughts.length;x++)
@@ -247,14 +244,15 @@ socket.on('animateUpdate', function(json){
 	}
 });
 socket.on('newThought',function(json){
-	var thoughts = JSON.parse(json)
-	var div = document.createElement("div")
-	div.innerHTML = twemoji.parse(thoughts.message);
-	div.style.left = thoughts.x + "%"
-	div.style.top = thoughts.y + "%"
-	div.style.animationDuration = "2s"
-	div.style.animationName = "pop"
-	document.getElementById("body").appendChild(div)
+	var newThought = JSON.parse(json);
+	var div = document.createElement("div");
+	div.innerHTML = twemoji.parse(newThought.message);
+	div.style.left = newThought.x + "%";
+	div.style.top = newThought.y + "%";
+	div.className = "thought";
+	div.style.animationDuration = "2s";
+	div.style.animationName = "pop";
+	document.getElementById("body").appendChild(div);
 });
 
 if(window.location.search == "?kiosk") //show input button if on iPad, input kiosk, etc.

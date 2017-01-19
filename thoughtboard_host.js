@@ -5,7 +5,10 @@ var io = require('socket.io')(http);
 var MongoClient = require("mongodb").MongoClient;
 var ObjectID = require("mongodb").ObjectID;
 var DBurl = "mongodb://localhost:27017/thoughtboard";
-
+var X_MIN_BOUNDS = 0;
+var X_MAX_BOUNDS = 100;
+var Y_MIN_BOUNDS = 5;
+var Y_MAX_BOUNDS = 96;
 var curQA = ''
 
 var query = {question:"What does the Constitution Say?",thoughts:[
@@ -158,22 +161,45 @@ function getCoordVect(thought)
 function animateUpdate() {
 	for(var x=0;x<query.thoughts.length;x++)
 	{
-		var entropyX = Math.random() - .1
-		var entropyY = Math.random() - .1
-		if(entropyX < 0)
-			query.thoughts[x].x = query.thoughts[x].x + (query.thoughts[x].vector.x * entropyX)
-		else
-			query.thoughts[x].x = query.thoughts[x].x + (query.thoughts[x].vector.x)
-		
-		if(entropyY < 0)
-			query.thoughts[x].y = query.thoughts[x].y + (query.thoughts[x].vector.y * entropyY *.25)
-		else
-			query.thoughts[x].y = query.thoughts[x].y + (query.thoughts[x].vector.y * .25)
-			
-		if(query.thoughts[x].x < -2 || query.thoughts[x].x > 102)
+		//console.log(query.thoughts[x].vector.x)
+		//first see if thought is drifting out of bounds on X axis. If so, reverse
+		if((query.thoughts[x].x < X_MIN_BOUNDS && query.thoughts[x].vector.x < 0) || (query.thoughts[x].x > X_MAX_BOUNDS && query.thoughts[x].vector.x > 0))
+		{
 			query.thoughts[x].vector.x = query.thoughts[x].vector.x * -1;
-		if(query.thoughts[x].y < 0 || query.thoughts[x].y > 100)
+			query.thoughts[x].x = query.thoughts[x].x + query.thoughts[x].vector.x ;
+		}
+		else
+		{
+			//else, get some entropy. if negative as a result of an offset, reverse direction. Otherwise continue in same direction.
+			var entropyX = Math.random() - .1;
+			if(entropyX < 0)
+			{
+				query.thoughts[x].x = query.thoughts[x].x + (query.thoughts[x].vector.x * entropyX)
+			}
+			else
+			{
+				query.thoughts[x].x = query.thoughts[x].x + (query.thoughts[x].vector.x)
+			}
+		}
+		
+		//now check Y axis bounds.
+		if((query.thoughts[x].y < Y_MIN_BOUNDS && query.thoughts[x].vector.y < 0) || (query.thoughts[x].y > Y_MAX_BOUNDS && query.thoughts[x].vector.y > 0))
+		{
 			query.thoughts[x].vector.y = query.thoughts[x].vector.y * -1;
+			query.thoughts[x].y = query.thoughts[x].y + query.thoughts[x].vector.y;
+		}
+		else
+		{
+			var entropyY = Math.random() - .1;
+			if(entropyY < 0)
+			{
+				query.thoughts[x].y = query.thoughts[x].y + (query.thoughts[x].vector.y * entropyY *.5)
+			}
+			else
+			{
+				query.thoughts[x].y = query.thoughts[x].y + (query.thoughts[x].vector.y * .5)
+			}
+		}
 	}
 	io.emit('animateUpdate',JSON.stringify(query))
 	
@@ -252,20 +278,10 @@ io.on('connection', function(socket){
 	io.emit('data',JSON.stringify(query))
 	socket.on('submit', function(submission){
 		var thought = getCoordVect({vector:{},message:submission.message})
-		/*
-		thought.x = (Math.random() * 10) + 40
-		thought.y = (Math.random() * 10) + 40
-		thought.vector.x = Math.random() * 10
-		thought.vector.y = Math.random() * 10
-		if(Math.random() < .5)
-		{
-			thought.vector.x = thought.vector.x * -1
-		}
-		if(Math.random() < .5)
-		{
-			thought.vector.y = thought.vector.y * -1
-		}
-		* */
+		//override random start assingment and put in center of screen for viewability by user.
+		//still maintain the X and Y axis float vectors
+		thought.x = 50;
+		thought.y = 50;
 		console.log(thought)
 		newAnswer({"_id":query._id},submission.message,new Date(),function(){
 			query.thoughts.push(thought);
