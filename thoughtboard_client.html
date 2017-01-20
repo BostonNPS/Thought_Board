@@ -20,6 +20,44 @@ transition-timing-function: linear;
 overflow:hidden;
 }
 
+@keyframes pop {
+	0% {transform:scale(4) translateX(0%);}
+	75% { transform:scale(0.5) translateX(-50%);}
+	100% { transform:scale(1) translateX(-25%);}
+	
+}
+@keyframes maximize {
+	0% {transform:scale(1) translateX(-50%)}
+	100% { transform:scale(2) translateX(-25%)}
+	
+}
+@keyframes minimize {
+	0% {transform:scale(2) translateX(-25%)}
+	100% { transform:scale(1) translateX(-50%)}
+	
+}
+.popIn {
+	animation-fill-mode:forwards;
+	animation-duration:2s;
+	animation-name:pop;
+}
+
+.maximizedThought {
+	animation-fill-mode: forwards;
+	animation-duration:2s;
+	animation-name:maximize;
+	transition:left 2s, top 2s !important;
+	left:50% !important;
+	top:50% !important;
+	z-index:1000;
+}
+.minimizedThought {
+	animation-fill-mode: forwards;
+	animation-duration:2s;
+	animation-name:minimize;
+
+}
+
 #body {
 height:100%;
 width:100%;
@@ -52,6 +90,7 @@ left:0;
     animation-duration:1s;
 	animation-timing-function:ease-out;
 	animation-fill-mode: forwards;
+	cursor:pointer;
 }
 
 @keyframes hidePlus {
@@ -148,12 +187,7 @@ input[type="text"] {
     box-sizing: border-box;
     
 }
-@keyframes pop {
-	0% {transform:scale(4) translate(-50%,-50%);}
-	75% { transform:scale(0.5) translate(-50%,-50%);}
-	100% { transform:scale(1) translate(-50%,-50%);}
-	
-}
+
 .button {
 	
 		display: inline-block;
@@ -229,7 +263,13 @@ socket.on('data', function(json){
 		div.innerHTML = twemoji.parse(thoughts[x].message);
 		div.style.left = thoughts[x].x + "%";
 		div.style.top = thoughts[x].y + "%";
+		div.id = thoughts[x]._id;
 		div.className = "thought";
+		if(thoughts[x].highlighted == "true")
+		{
+			div.className += " maximizedThought"
+		}
+		div.addEventListener("click", function(e){highlight(e)})
 		document.getElementById("body").appendChild(div);
 	}
 });
@@ -249,16 +289,30 @@ socket.on('newThought',function(json){
 	div.innerHTML = twemoji.parse(newThought.message);
 	div.style.left = newThought.x + "%";
 	div.style.top = newThought.y + "%";
-	div.className = "thought";
-	div.style.animationDuration = "2s";
-	div.style.animationName = "pop";
+	div.id = newThought._id;
+	div.className = "thought popIn";
+	div.addEventListener("click", function(e){highlight(e)})
 	document.getElementById("body").appendChild(div);
+});
+socket.on('maximizeThought',function(id){
+	var div = document.getElementById(id);
+	div.className = "thought maximizedThought"
+});
+socket.on('minimizeThought',function(id){
+	var div = document.getElementById(id);
+	div.className = "thought minimizedThought"
 });
 
 if(window.location.search == "?kiosk") //show input button if on iPad, input kiosk, etc.
 {
 	document.getElementById("plus").style.display = "block"
 }
+
+function highlight(e)
+{
+	socket.emit("highlight",{id:e.target.id})
+}
+
 function showDialog(){
 	document.getElementById("plus").style.animationName = "hidePlus";
 	document.getElementById("dialog").style.animationName = "showDialog";
