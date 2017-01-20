@@ -9,7 +9,7 @@ var X_MIN_BOUNDS = 0;
 var X_MAX_BOUNDS = 100;
 var Y_MIN_BOUNDS = 5;
 var Y_MAX_BOUNDS = 96;
-var curQA = ''
+var callout_timeout = 10000;
 
 var query = {question:"What does the Constitution Say?",thoughts:[
 {x:5,y:75,vector:{x:1,y:7.1},height:"10%",width:"10%",message:"We the People of the United States, in Order to form a more perfect Union, establish Justice, insure domestic Tranquility, provide for the common defence, promote the general Welfare, and secure the Blessings of Liberty to ourselves and our Posterity, do ordain and establish this Constitution for the United States of America."},
@@ -94,11 +94,11 @@ function newQuestion(q,callback) { //q is a valid document object to insert into
 	});
 }
 
-function newAnswer(q,a,ts,callback) { //q is the querying/find object to select the question. a is the new answer to insert in list. ts is timestamp.
+function newAnswer(q,a,ts,id,callback) { //q is the querying/find object to select the question. a is the new answer to insert in list. ts is timestamp, id is new ObjectID() called.
 	MongoClient.connect(DBurl, function(err,db){
 		var collection = db.collection("QAs");
 		var success = true
-		collection.update(q,{"$addToSet":{"thoughts" : {"message" : a ,"timeStamp" : ts, "_id" : new ObjectID()}}},function(err,docs){
+		collection.update(q,{"$addToSet":{"thoughts" : {"message" : a ,"timeStamp" : ts, "_id" : id}}},function(err,docs){
 			if(err)
 			{
 				console.log(err);
@@ -161,6 +161,10 @@ function getCoordVect(thought)
 function animateUpdate() {
 	for(var x=0;x<query.thoughts.length;x++)
 	{
+		if(query.thoughts[x].highlighted == "true")
+		{
+			continue;
+		}
 		//console.log(query.thoughts[x].vector.x)
 		//first see if thought is drifting out of bounds on X axis. If so, reverse
 		if((query.thoughts[x].x < X_MIN_BOUNDS && query.thoughts[x].vector.x < 0) || (query.thoughts[x].x > X_MAX_BOUNDS && query.thoughts[x].vector.x > 0))
@@ -205,6 +209,18 @@ function animateUpdate() {
 	
 }
 
+function minimizeThoughts(callback) {
+	for(x in query.thoughts)
+	{
+		if(query.thoughts[x].highlighted == "true")
+		{
+			io.emit("minimizeThought",query.thoughts[x]._id)
+			query.thoughts[x].highlighted = "false";
+		}
+	}
+	callback();
+}
+
 
 //on start, get on Mongo DB and get latest questions/answers, create local object with location and animation vector data as well as question/answer data
 
@@ -214,7 +230,7 @@ getActiveQA(function(QA){
 	query = {"question":QA.question,"_id":QA._id,"thoughts":[]};
 	for(x in QA.thoughts)
 	{
-		query.thoughts.push(getCoordVect({vector:{},message:QA.thoughts[x].message}))
+		query.thoughts.push(getCoordVect({vector:{},_id:QA.thoughts[x]._id,message:QA.thoughts[x].message}))
 	}
 	io.emit('data',JSON.stringify(query))
 });
@@ -277,15 +293,36 @@ app.use(express.static(__dirname));
 io.on('connection', function(socket){
 	io.emit('data',JSON.stringify(query))
 	socket.on('submit', function(submission){
-		var thought = getCoordVect({vector:{},message:submission.message})
+		var thought = getCoordVect({vector:{},_id:new ObjectID(),message:submission.message})
 		//override random start assingment and put in center of screen for viewability by user.
 		//still maintain the X and Y axis float vectors
 		thought.x = 50;
 		thought.y = 50;
 		console.log(thought)
-		newAnswer({"_id":query._id},submission.message,new Date(),function(){
+		newAnswer({"_id":query._id},submission.message,new Date(),thought._id,function(){
 			query.thoughts.push(thought);
 			io.emit('newThought',JSON.stringify(thought))
+		});
+	});
+	socket.on('highlight', function(submission){
+		minimizeThoughts(function(){
+			for(x in query.thoughts)
+			{
+				if(query.thoughts[x]._id == submission.id)
+				{
+					io.emit("maximizeThought",submission.id)
+					query.thoughts[x].highlighted = "true";
+					setTimeout(function(){
+						for(x in query.thoughts)
+						{
+						if(query.thoughts[x]._id == submission.id && query.thoughts[x].highlighted == "true")
+						{
+							minimizeThoughts(function(){})
+						}
+						}
+					},callout_timeout)
+				}
+			}	
 		});
 	});
 });
