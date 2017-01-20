@@ -12,7 +12,7 @@ Large displays serve as an attractor of attention and offer the opportunity for 
 ##Recommended Setup
 1. Follow instructions for setting up a Raspberry Pi with Raspbian.
 2. Once set up use apt-get to install the needed applications, Node.js, MongoDB, and, if you are running locally on a display, Chromium.
-```
+   ```
 sudo apt-get install nodejs
 sudo apt-get install mongodb
 sudo apt-get install chromium-browser
@@ -22,7 +22,7 @@ sudo apt-get install chromium-browser
 4. `cd` into the directory and then `git clone https://github.com/twitter/twemoji.git` to include emoji support across all platforms. Many thanks to the Twemoji team and Twitter for making this great library publicly available.
 5. It is reccommended that you setup a local wifi network using the Raspberry Pi to simplify managing the kiosks. This is particularly useful if you don't have a preexisting network. Even if you do, public wifi ap's typically have captive log-in portals and other things that are also an impediment to automatically getting kiosks running without additional intervention. [The easiest tutorial is probably here on the adafruit website](https://learn.adafruit.com/setting-up-a-raspberry-pi-as-a-wifi-access-point/overview). Follow all those instructions and come back here.
 6. Set the Node.js app and chromium-browser (if you are using the Pi to be host and run client on a display) to load up on boot. I have found that the ~.config/autostart/ folder is the easiest and most reliable way to get things started for Node and Chromium. Make a .desktop startup file, perhaps "Thought_Board.desktop" in ~.config/autostart/ that executes the startup script included in this repository:
-```
+   ```
 [Desktop Entry]
 
 Type=Application
