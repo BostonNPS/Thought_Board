@@ -238,10 +238,38 @@ getActiveQA(function(QA){
 setupQuestionAnswers();
 setInterval(function(){animateUpdate()},5000);
 
+
+
+//Express.js routing stats here
+
+//First protect /admin and the admin functions with basic authentication. Because this is all intended to be on a local LAN that should be secured,
+//HTTPS is a lot of unneccessary overhead. IF this is going on the wide interwebs, you really should to change all of this!
+//Basic auth prevents someone who manages to actually get to the admin panel on a kiosk from actually doing anything.
+app.all("/admin/*",function(req,res,next){
+	
+	//Thanks to user "qwerty" on stackoverflow for a basic and compact auth comparison algorithm solution
+	
+	var auth = {login:process.env.THOUGHT_ADMIN_USER,password:process.env.THOUGHT_ADMIN_PASS}
+	var b64auth = (req.headers.authorization || '').split(' ')[1] || '';
+	var login = new Buffer(b64auth, "base64").toString().split(':')[0];
+	var password = new Buffer(b64auth, "base64").toString().split(':')[1];
+	
+	if(!login || ! password || login !== auth.login || password !== auth.password)
+	{
+		res.set('WWW-Authenticate','Basic realm="thoughtAdmin"');
+		res.status(401).send("User/Pass pls!");
+		console.log("Failed admin logon request")
+		return
+	}
+	next();
+	})
+
 app.get('/app', function(req, res){
 	res.sendFile(__dirname + '/thoughtboard_client.html');
 });
 
+
+//all the admin functions are GET requests under the /admin parent.
 app.get('/admin/:name', function(req, res){
 	switch(req.params.name) {
 		case 'data':
@@ -284,11 +312,14 @@ app.get('/admin/:name', function(req, res){
 	}
 });
 
+//admin panel html page.
 app.get('/admin', function(req, res){
 	res.sendFile(__dirname + '/thoughtboard_admin.html');
 });
 
+//serve static files like jquery, manifest.json, twemoji, etc.
 app.use(express.static(__dirname));
+
 
 io.on('connection', function(socket){
 	io.emit('data',JSON.stringify(query))
