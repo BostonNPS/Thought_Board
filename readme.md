@@ -34,4 +34,12 @@ Type=Application
 Exec=bash /home/pi/Thought_Board/autostart
 ```
 
+7. Set the admin panel username and password to prevent mischief if a kiosk lands on the admin panel. These are globar environment variables. Set them up from command line with:
+
+   ```
+export THOUGHT_ADMIN_USER=adminNameHere
+export THOUGHT_ADMIN_PASS=passwordHere
+```
+   Of course, you shouldn't save this password in the browser of a kiosk--that defeats the purpose of hiding it from public view! Also please note it is a basic authentication scheme without HTTPS (so not recommended for the wide internet). This deployment scheme outlined in this README is fine for plain unencrypted usernames and password because it is solely on the local network you just set up. No clients other than your kiosks should be on it, except perhaps your phone or extra tablet solely for admin work.
+
 This should be all the setup. From here everything should be manageable from the admin interface!
