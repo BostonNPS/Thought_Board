@@ -261,6 +261,7 @@ app.all("/admin/*",function(req,res,next){
 		console.log("Failed admin logon request")
 		return
 	}
+	console.log("accepted logon from " + req.ip)
 	next();
 	})
 
