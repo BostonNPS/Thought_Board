@@ -1,0 +1,9 @@
+#!/bin/bash
+/usr/bin/node /home/pi/Thought_Board/thoughtboard_host.js &
+sleep 30
+/usr/bin/chromium-browser --kiosk --incognito http://localhost:8000/app &
+xset -dpms # disable DPMS (Energy Star) features.
+xset s off # disable screen saver
+xset s noblank # don't blank the video device
+sleep 5
+/usr/bin/xte 'mousemove 1920 1080'
