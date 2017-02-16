@@ -11,11 +11,12 @@ Large displays serve as an attractor of attention and offer the opportunity for 
 
 ##Recommended Setup
 1. Follow instructions for setting up a Raspberry Pi with Raspbian.
-2. Once set up use apt-get to install the needed applications, Node.js, MongoDB, and, if you are running locally on a display, Chromium.
+2. Once set up use apt-get to install the needed applications, Node.js, MongoDB, and, if you are running locally on a display, Chromium and xautomation so the cursor automatically hides at boot.
    ```
 sudo apt-get install nodejs
 sudo apt-get install mongodb
 sudo apt-get install chromium-browser
+sudo apt-get install xautomation
 ```
 
 3. It should be noted that the mongoDB takes awhile to set everything up. Once its all done, `git clone` this repository.
