@@ -39,13 +39,47 @@ tr:nth-child(even) {
     text-shadow: -1px -1px 1px rgba(169,169,169,0.5);
     box-shadow: 2px 2px 20px rgba(0,0,0,.75);
 }
+#dialog {
+	position:fixed;
+	z-index:1001;
+	display:block;
+	height:25%;
+	width:75%;
+	top:10%;
+	margin-left:auto;
+	margin-right:auto;
+	left:-100%;
+	transform:translateX(-50%);
+	padding:1em;
+	animation-duration:1s;
+	animation-timing-function:ease-out;
+	animation-fill-mode: forwards;
+	background: rgba(255,255,255,.95);
+    box-shadow: 0px 0px 10px 2px rgba(255,255,255,.95);
+}
+
+@keyframes showDialog {
+	from{left:-100%}
+	to{left:50%}
+}
+
+@keyframes hideDialog {
+	from{left:50%}
+	to{left:-100%}
+}
 </style>
 </head>
 <body>
 	<h1>Admin</h1>
 	<div id="qaTable"></div>
-	<span id="plus" onclick="addQuestion()">+</span>
+	<span id="plus" onclick="showDialog()">+</span>
+	<div id="dialog"><form id="subform" enctype='multipart/form-data'><textarea name="question"></textarea><br><input type="file" name="image"><span class="btnrow"><input type="submit" class="button blue" style="float:right;"><button id="cancel" style="float:right;margin-right:1em;" onclick='hideDialog()' class="button red">Cancel</button></span></form></div>
 <script>
+	$("#subform").submit(function(e){
+		e.preventDefault();
+		addQuestion(this);
+		hideDialog();
+	});
 	var socket = io();
 	$(document).ready(function(){
 		getData(function(data){dispData(data)});
@@ -63,15 +97,23 @@ tr:nth-child(even) {
 		for(x in data)
 		{
 			var table = document.createElement("table")
+			var headRow = ''
 			if(data[x].active && data[x].active === "true")
 			{
 				table.className = "activeQ"
-				$(table).append("<tr><th><em style='color:red;font-weight:bold;'>Active Question</em></th><th>" + data[x].question + "</th><th>" + new Date(data[x].date) + "</td></tr>")
+				headRow = "<tr><th><em style='color:red;font-weight:bold;'>Active Question</em></th><th>"
 			}
 			else
 			{
-				$(table).append("<tr><th><button onclick='activate(&quot;" + data[x]._id + "&quot;)'>Activate Question</button></th><th>" + data[x].question + "</th><th>" + new Date(data[x].date) + "</td></tr>")
+				headRow = "<tr><th><button onclick='activate(&quot;" + data[x]._id + "&quot;)'>Activate Question</button><button onclick='delQ(&quot;" + data[x]._id + "&quot;)'>Delete Question</button></th><th>"
 			}
+			headRow += data[x].question + "<br>"
+			if(data[x].image)
+			{
+				headRow += "<img src='" + data[x].image.path + "'>"
+			}
+			headRow += "</th><th>" + new Date(data[x].date) + "</th></tr>"
+			$(table).append(headRow)
 			$(table).append("<tr><th></th><th>Answers</th><th>Timestamp</td></tr>")
 			for(a in data[x].thoughts)
 			{
@@ -84,7 +126,7 @@ tr:nth-child(even) {
 	{
 		var msg = prompt("Enter edited answer", document.getElementById(aID).innerHTML)
 		$.ajax({
-			url:"/admin/edit?id=" + aID + "&message=" + msg,
+			url:"/admin/question/edit?id=" + aID + "&message=" + msg,
 			success:function(){
 					getData(function(data){
 						dispData(data)
@@ -98,7 +140,7 @@ tr:nth-child(even) {
 		if(conf == true)
 		{
 		$.ajax({
-			url:"/admin/delete?id=" + aID,
+			url:"/admin/question/delete?id=" + aID,
 			success:function(){
 					getData(function(data){
 						dispData(data)
@@ -107,11 +149,39 @@ tr:nth-child(even) {
 			})
 		}
 	}
-	function addQuestion()
+	function delQ(qID)
 	{
-		var q = prompt("Enter a new Question")
+		var conf = confirm("Are you sure you want to delete this question and all answers?")
+		if(conf == true)
+		{
 		$.ajax({
-			url:"/admin/add?q=" + q,
+			url:"/admin/question/delete?id=" + qID,
+			success:function(d){
+					console.log(d)
+					getData(function(data){
+						dispData(data)
+					});	
+				}
+			})
+		}
+	}
+	function showDialog(){
+		document.getElementById("dialog").style.animationName = "showDialog";
+	}
+	function hideDialog() {
+		document.getElementById("dialog").style.animationName = "hideDialog";
+	}
+	function addQuestion(fdata)
+	{
+		//var q = prompt("Enter a new Question")
+		var data = new FormData(fdata);
+		console.log(data)
+		$.ajax({
+			type:"POST",
+			url:"/admin/question/add",
+			contentType:false,
+			processData:false,
+			data: data,
 			success:function(){
 					getData(function(data){
 						dispData(data)
@@ -122,7 +192,7 @@ tr:nth-child(even) {
 	function activate(id)
 	{
 		$.ajax({
-			url:"/admin/activate?id=" + id,
+			url:"/admin/question/activate?id=" + id,
 			success:function(){
 					getData(function(data){
 						dispData(data)
