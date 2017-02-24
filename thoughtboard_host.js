@@ -78,6 +78,25 @@ function getQA(q,callback) { //q is a valid document object to filter by....like
 	});
 }
 
+function exportQA(id,callback) { 
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		collection.find({"_id" :  new ObjectID(id)}).toArray(function(err,docs){
+			if(err)
+				console.log(err);
+			//console.log(JSON.stringify(docs))
+			var csv = "Question: " + docs[0].question + ",Date Submitted: " + docs[0].date + "\n\nAnswer:,Time Stamp:\n"
+			for(x in docs[0].thoughts)
+			{
+				//JSON.stringify(docs[x])
+				csv += docs[0].thoughts[x]['message'] + ',' + docs[0].thoughts[x]['timeStamp'] + "\n"
+			}
+			callback(csv);
+		});
+		db.close();
+	});
+}
+
 function newQuestion(q,callback) { //q is a valid document object to insert into collection
 	MongoClient.connect(DBurl, function(err,db){
 		var collection = db.collection("QAs");
@@ -341,6 +360,14 @@ app.get('/admin/question/:name',function(req, res){
 					res.send(results);
 					console.log('ACTIVATED.')
 					setupQuestionAnswers();
+			})
+		break;
+		case 'export.csv':
+			console.log("EXPORTING " + req.query.id);
+			exportQA(req.query.id,function(results){
+					res.type('text/csv')
+					res.send(results);
+					console.log('EXPORTED.')
 			})
 		break;
 	}

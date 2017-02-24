@@ -97,15 +97,15 @@ tr:nth-child(even) {
 		for(x in data)
 		{
 			var table = document.createElement("table")
-			var headRow = ''
+			var headRow = "<tr><th><button onclick='exportCSV(&quot;" + data[x]._id + "&quot;)'>Export Results (.csv)</button><br>"
 			if(data[x].active && data[x].active === "true")
 			{
 				table.className = "activeQ"
-				headRow = "<tr><th><em style='color:red;font-weight:bold;'>Active Question</em></th><th>"
+				headRow += "<em style='color:red;font-weight:bold;'>Active Question</em></th><th>"
 			}
 			else
 			{
-				headRow = "<tr><th><button onclick='activate(&quot;" + data[x]._id + "&quot;)'>Activate Question</button><button onclick='delQ(&quot;" + data[x]._id + "&quot;)'>Delete Question</button></th><th>"
+				headRow += "<button onclick='activate(&quot;" + data[x]._id + "&quot;)'>Activate Question</button><br><button onclick='delQ(&quot;" + data[x]._id + "&quot;)'>Delete Question</button></th><th>"
 			}
 			headRow += data[x].question + "<br>"
 			if(data[x].image)
@@ -126,7 +126,7 @@ tr:nth-child(even) {
 	{
 		var msg = prompt("Enter edited answer", document.getElementById(aID).innerHTML)
 		$.ajax({
-			url:"/admin/question/edit?id=" + aID + "&message=" + msg,
+			url:"/admin/answer/edit?id=" + aID + "&message=" + msg,
 			success:function(){
 					getData(function(data){
 						dispData(data)
@@ -140,7 +140,7 @@ tr:nth-child(even) {
 		if(conf == true)
 		{
 		$.ajax({
-			url:"/admin/question/delete?id=" + aID,
+			url:"/admin/answer/delete?id=" + aID,
 			success:function(){
 					getData(function(data){
 						dispData(data)
@@ -164,6 +164,17 @@ tr:nth-child(even) {
 				}
 			})
 		}
+	}
+	function exportCSV(qID){
+		window.open("/admin/question/export.csv?id=" + qID,"_blank")
+		/*
+		$.ajax({
+			url:"/admin/question/export?id=" + qID,
+			success:function(d){
+					console.log(d)
+				}
+			})
+		*/
 	}
 	function showDialog(){
 		document.getElementById("dialog").style.animationName = "showDialog";
