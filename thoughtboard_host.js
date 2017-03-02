@@ -1,7 +1,9 @@
 var express = require('express');
+var multer = require('multer');
 var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
+var uploads = multer({dest:'uploads/'});
 var MongoClient = require("mongodb").MongoClient;
 var ObjectID = require("mongodb").ObjectID;
 var DBurl = "mongodb://localhost:27017/thoughtboard";
@@ -76,6 +78,25 @@ function getQA(q,callback) { //q is a valid document object to filter by....like
 	});
 }
 
+function exportQA(id,callback) { 
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		collection.find({"_id" :  new ObjectID(id)}).toArray(function(err,docs){
+			if(err)
+				console.log(err);
+			//console.log(JSON.stringify(docs))
+			var csv = "Question: " + docs[0].question + ",Date Submitted: " + docs[0].date + "\n\nAnswer:,Time Stamp:\n"
+			for(x in docs[0].thoughts)
+			{
+				//JSON.stringify(docs[x])
+				csv += docs[0].thoughts[x]['message'] + ',' + docs[0].thoughts[x]['timeStamp'] + "\n"
+			}
+			callback(csv);
+		});
+		db.close();
+	});
+}
+
 function newQuestion(q,callback) { //q is a valid document object to insert into collection
 	MongoClient.connect(DBurl, function(err,db){
 		var collection = db.collection("QAs");
@@ -89,6 +110,22 @@ function newQuestion(q,callback) { //q is a valid document object to insert into
 			{
 				callback(q);
 			}
+		});
+		db.close();
+	});
+}
+
+function deleteQA(id,callback) {
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		var success = true
+		collection.remove({"_id":new ObjectID(id)},function(err,results){
+			if(err)
+			{
+				console.log(err);
+				success = false;
+			}
+			callback(results);
 		});
 		db.close();
 	});
@@ -227,7 +264,7 @@ function minimizeThoughts(callback) {
 function setupQuestionAnswers(QA) {
 getActiveQA(function(QA){
 	console.log("Using question id " + QA._id + ". Question: " + QA.question)
-	query = {"question":QA.question,"_id":QA._id,"thoughts":[]};
+	query = {"question":QA.question,"image":QA.image,"_id":QA._id,"thoughts":[]};
 	for(x in QA.thoughts)
 	{
 		query.thoughts.push(getCoordVect({vector:{},_id:QA.thoughts[x]._id,message:QA.thoughts[x].message}))
@@ -270,17 +307,14 @@ app.get('/app', function(req, res){
 });
 
 
-//all the admin functions are GET requests under the /admin parent.
-app.get('/admin/:name', function(req, res){
-	switch(req.params.name) {
-		case 'data':
-			getQAs(function(docs){
-				res.json(docs)
-			});
-			break;
-		case 'add':
+app.get('/admin/data', function(req, res){
+	getQAs(function(docs){
+		res.json(docs)
+	});
+});
+app.post('/admin/question/add', uploads.single('image'),function(req,res){
 			var now = new Date();
-			newQuestion({"question":req.query.q,"date":now,"active":"false"},function(success){
+			newQuestion({"question":req.body.question,"date":now,"image":req.file,"active":"false"},function(success){
 				if(success)
 				{
 					getQA(success,function(docs){
@@ -288,28 +322,53 @@ app.get('/admin/:name', function(req, res){
 					});
 				}
 			});
-			break;
+		});
+
+//all the admin functions are GET requests under the /admin parent.
+app.get('/admin/answer/:name', function(req, res){
+	switch(req.params.name) {
 		case 'edit':
 			console.log(req.query);
 			editAnswer(req.query.id,req.query.message,function(results){
 					res.send(results);
 					setupQuestionAnswers();
 			})
-			break;
+		break;
 		case 'delete':
 			console.log(req.query);
 			deleteAnswer(req.query.id,function(results){
 					res.send(results);
 					setupQuestionAnswers();
 			})
-			break;
+		break;
+	}
+});
+app.get('/admin/question/:name',function(req, res){
+	switch(req.params.name) {
+		case 'delete':
+			console.log("DELETE " + req.query.id);
+			deleteQA(req.query.id,function(results){
+					res.send(results);
+					console.log(results)
+					console.log('DELETED.')
+			})
+		break;
 		case 'activate':
-			console.log(req.query);
+			console.log("ACTIVATE " + req.query.id);
 			setActiveQA(req.query.id,function(results){
 					res.send(results);
+					console.log('ACTIVATED.')
 					setupQuestionAnswers();
 			})
-			break;
+		break;
+		case 'export.csv':
+			console.log("EXPORTING " + req.query.id);
+			exportQA(req.query.id,function(results){
+					res.type('text/csv')
+					res.send(results);
+					console.log('EXPORTED.')
+			})
+		break;
 	}
 });
 
