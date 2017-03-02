@@ -4,7 +4,6 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <script src="jquery.js"></script>
-<script src="/socket.io/socket.io.js"></script>
 <script src="/twemoji/twemoji.min.js"></script>
 <style>
 table {
@@ -80,7 +79,6 @@ tr:nth-child(even) {
 		addQuestion(this);
 		hideDialog();
 	});
-	var socket = io();
 	$(document).ready(function(){
 		getData(function(data){dispData(data)});
 	});

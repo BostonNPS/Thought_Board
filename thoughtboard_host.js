@@ -313,7 +313,6 @@ app.get('/admin/data', function(req, res){
 	});
 });
 app.post('/admin/question/add', uploads.single('image'),function(req,res){
-	console.log(req)
 			var now = new Date();
 			newQuestion({"question":req.body.question,"date":now,"image":req.file,"active":"false"},function(success){
 				if(success)
