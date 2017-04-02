@@ -108,7 +108,14 @@ tr:nth-child(even) {
 			headRow += data[x].question + "<br>"
 			if(data[x].image)
 			{
-				headRow += "<img src='" + data[x].image.path + "'>"
+				if(data[x].image.mimetype.search("video") > -1)
+				{
+					headRow += "<video src='" + data[x].image.path + "' controls>"
+				}
+				else
+				{
+					headRow += "<img src='" + data[x].image.path + "'>"
+				}
 			}
 			headRow += "</th><th>" + new Date(data[x].date) + "</th></tr>"
 			$(table).append(headRow)

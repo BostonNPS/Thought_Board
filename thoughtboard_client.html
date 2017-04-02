@@ -188,9 +188,34 @@ input[type="text"] {
     overflow:hidden;
     
 }
+div.mediaBox {
+	height: 75%;
+    width: 100%;
+    position: absolute;
+    /*transform: translateY(-50%);*/
+    text-align: center;
+    /*z-index:999;*/
+}
+div.mediaBox img {
+	height:100%;
+}
 @media screen and (max-width: 1024px) {
 #question {
 top:0;
+}
+div.mediaBox {
+	bottom:0;
+}
+div.vidPlayBtn {
+	display:block;
+	position:relative;
+	top:-100%;
+	left:50%;
+	transform:translateX(-50%);
+	height:300px;
+	width:300px;
+	background:url('play.png');
+	background-size:cover;
 }
 }
 
@@ -198,19 +223,15 @@ top:0;
 #question {
 bottom:0;
 }
-}
+
 div.mediaBox {
-	height: 75%;
-    width: 100%;
-    position: absolute;
-    top: 45%;
-    transform: translateY(-50%);
-    text-align: center;
-    /*z-index:999;*/
+	top:0;
 }
-div.mediaBox img {
-	height:100%;
+div.vidPlayBtn {
+	display:none;
 }
+}
+
 .button {
 	
 		display: inline-block;
@@ -283,7 +304,17 @@ socket.on('data', function(json){
 	{
 		var media = document.createElement("div");
 		media.className = "mediaBox";
-		media.innerHTML = "<img src='" + query.image.path + "'>"
+		if(query.image.mimetype.search("video") > -1)
+		{
+			media.innerHTML = "<video src='" + query.image.path + "' style='max-width:100%'></video>"
+			if(window.location.search == "?kiosk"){
+				media.getElementsByTagName('video')[0].setAttribute("controls","controls")
+			}
+		}
+		else
+		{
+			media.innerHTML = "<img src='" + query.image.path + "' style='max-width:100%'>"
+		}
 		document.getElementById("body").appendChild(media)
 	}
 	var thoughts = query.thoughts
@@ -303,6 +334,11 @@ socket.on('data', function(json){
 		document.getElementById("body").appendChild(div);
 	}
 });
+socket.on('playVid', function(){
+	if(window.location.search != "?kiosk"){
+		document.getElementsByTagName("video")[0].play();
+	}
+	})
 socket.on('animateUpdate', function(json){
 	divs = document.getElementsByClassName("thought");
 		var query = JSON.parse(json)

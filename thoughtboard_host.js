@@ -7,6 +7,8 @@ var uploads = multer({dest:'uploads/'});
 var MongoClient = require("mongodb").MongoClient;
 var ObjectID = require("mongodb").ObjectID;
 var DBurl = "mongodb://localhost:27017/thoughtboard";
+
+
 var X_MIN_BOUNDS = 0;
 var X_MAX_BOUNDS = 100;
 var Y_MIN_BOUNDS = 5;
@@ -45,9 +47,16 @@ function getActiveQA(callback) {
 			else {
 				getQAs(function(allQAs){
 					console.log(allQAs)
-					setActiveQA(allQAs[allQAs.length - 1]._id,function(){
-						callback(allQAs[allQAs.length - 1]);
-					});
+					if(allQAs.length)
+					{
+						setActiveQA(allQAs[allQAs.length - 1]._id,function(){
+							callback(allQAs[allQAs.length - 1]);
+						});
+					}
+					else
+					{
+						callback('');
+					}
 				});
 			}
 		});
@@ -379,6 +388,18 @@ app.get('/admin', function(req, res){
 
 //serve static files like jquery, manifest.json, twemoji, etc.
 app.use(express.static(__dirname));
+
+//experimental GPIO and PIR sensor video triggering
+var exec = require('child_process').exec;
+var playing = false;
+setInterval(function(){
+	exec('gpio read 0',function(err,stdout,stderr){
+		if(stdout[0] == '1' && playing == false)
+		{
+			io.emit('playVid');
+		}
+	});
+},100);
 
 
 io.on('connection', function(socket){
