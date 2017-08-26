@@ -162,6 +162,24 @@ function editAnswer(id,message,callback) { //use id of response plus new message
 		db.close();
 	});
 }
+function answerSuppression(id,state,callback) { //use id of response, true/false boolean for suppression. Default is nonexistent, therefore not suppressed.
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		var success = true
+console.log(id)
+console.log(state)
+		collection.update({"thoughts._id" : new ObjectID(id)},{$set:{"thoughts.$.suppressed":state}},function(err,results){
+			if(err)
+			{
+				console.log(err);
+				success = false;
+			}
+			callback(results);
+		});
+		db.close();
+	});
+}
+
 function deleteAnswer(id,callback) { //use id of response plus new message
 	MongoClient.connect(DBurl, function(err,db){
 		var collection = db.collection("QAs");
@@ -264,10 +282,17 @@ function minimizeThoughts(callback) {
 function setupQuestionAnswers(QA) {
 getActiveQA(function(QA){
 	console.log("Using question id " + QA._id + ". Question: " + QA.question)
-	query = {"question":QA.question,"image":QA.image,"_id":QA._id,"thoughts":[]};
+	query = {"question":QA.question,"image":QA.image,"_id":QA._id,"thoughts":[],"suppressed":[]};
 	for(x in QA.thoughts)
 	{
-		query.thoughts.push(getCoordVect({vector:{},_id:QA.thoughts[x]._id,message:QA.thoughts[x].message}))
+		if(QA.thoughts[x].suppressed)
+		{
+			query.suppressed.push(getCoordVect({vector:{},_id:QA.thoughts[x]._id,message:QA.thoughts[x].message}))	
+		}
+		else
+		{
+			query.thoughts.push(getCoordVect({vector:{},_id:QA.thoughts[x]._id,message:QA.thoughts[x].message}))
+		}
 	}
 	io.emit('data',JSON.stringify(query))
 });
@@ -277,7 +302,7 @@ setInterval(function(){animateUpdate()},5000);
 
 
 
-//Express.js routing stats here
+//Express.js routing starts here
 
 //First protect /admin and the admin functions with basic authentication. Because this is all intended to be on a local LAN that should be secured,
 //HTTPS is a lot of unneccessary overhead. IF this is going on the wide interwebs, you really should to change all of this!
@@ -306,6 +331,14 @@ app.get('/app', function(req, res){
 	res.sendFile(__dirname + '/thoughtboard_client.html');
 });
 
+app.get('/data', function(req,res){
+	getActiveQA(function(q){res.json(JSON.stringify(q))})
+});
+
+app.get('/suppress/:id', function(req,res){
+	answerSuppression(req.params.id,true,function(q){res.json(JSON.stringify(q))})
+	setupQuestionAnswers();
+});
 
 app.get('/admin/data', function(req, res){
 	getQAs(function(docs){
