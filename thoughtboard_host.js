@@ -12,7 +12,7 @@ var X_MAX_BOUNDS = 100;
 var Y_MIN_BOUNDS = 5;
 var Y_MAX_BOUNDS = 96;
 var callout_timeout = 10000;
-
+//default starter dataset on clean install
 var query = {question:"What does the Constitution Say?",thoughts:[
 {x:5,y:75,vector:{x:1,y:7.1},height:"10%",width:"10%",message:"We the People of the United States, in Order to form a more perfect Union, establish Justice, insure domestic Tranquility, provide for the common defence, promote the general Welfare, and secure the Blessings of Liberty to ourselves and our Posterity, do ordain and establish this Constitution for the United States of America."},
 {x:50,y:7,vector:{x:3,y:2.1},height:"10%",width:"15%",message:"Section 1: All legislative Powers herein granted shall be vested in a Congress of the United States, which shall consist of a Senate and House of Representatives."},
@@ -22,7 +22,7 @@ var query = {question:"What does the Constitution Say?",thoughts:[
 ]}
 
 
-
+//MONGO FUNCTIONS
 function getQAs(callback) {
 	MongoClient.connect(DBurl, function(err,db){
 		var collection = db.collection("QAs");
@@ -40,15 +40,23 @@ function getActiveQA(callback) {
 		var collection = db.collection("QAs");
 		collection.find({"active":"true"}).toArray(function(err,activeQA){
 			console.log(activeQA)
-			if(activeQA.length == 1)
-				callback(activeQA[0]);
-			else {
-				getQAs(function(allQAs){
-					console.log(allQAs)
-					setActiveQA(allQAs[allQAs.length - 1]._id,function(){
-						callback(allQAs[allQAs.length - 1]);
+			//if this is the first time, or nothing comes back for some reason, use default dataset to get things started.
+			if(activeQA.length == 0)
+			{
+				callback(query)
+			}
+			else
+			{
+				if(activeQA.length == 1)
+					callback(activeQA[0]);
+				else {
+					getQAs(function(allQAs){
+						console.log(allQAs)
+						setActiveQA(allQAs[allQAs.length - 1]._id,function(){
+							callback(allQAs[allQAs.length - 1]);
+						});
 					});
-				});
+				}
 			}
 		});
 		db.close();
@@ -196,6 +204,7 @@ function deleteAnswer(id,callback) { //use id of response plus new message
 	});
 }
 
+//drawing functions for displays screens.
 function getCoordVect(thought)
 {
 	thought.x = (Math.random() * 100)

@@ -3,8 +3,12 @@
 <meta name=viewport content="width=device-width, initial-scale=1">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<script src="jquery.js"></script>
+<script src="/lib/jquery.js"></script>
+<script src="/lib/jquery-ui.min.js"></script>
 <script src="/twemoji/twemoji.min.js"></script>
+<link rel="stylesheet" type="text/css" href="/lib/gstatic-add-ons1.css">
+<link rel="stylesheet" type="text/css" href="/lib/jquery-ui.min.css">
+
 <style>
 table {
 	border: 1px solid black;
@@ -37,6 +41,7 @@ tr:nth-child(even) {
     font-weight: bolder;
     text-shadow: -1px -1px 1px rgba(169,169,169,0.5);
     box-shadow: 2px 2px 20px rgba(0,0,0,.75);
+	cursor:pointer;
 }
 #dialog {
 	position:fixed;
@@ -70,7 +75,11 @@ tr:nth-child(even) {
 </head>
 <body>
 	<h1>Admin</h1>
-	<div id="qaTable"></div>
+	<div id="tabs">
+	<ul><li><a href="#activeQATab">Active Question</a></li><li><a href="#inactiveQATab">Inactive Questions</a></li></ul>
+	<div id="activeQATab"></div>
+	<div id="inactiveQATab"></div>
+	</div>
 	<span id="plus" onclick="showDialog()">+</span>
 	<div id="dialog"><form id="subform" enctype='multipart/form-data'><textarea name="question"></textarea><br><input type="file" name="image"><span class="btnrow"><input type="submit" class="button blue" style="float:right;"><button id="cancel" style="float:right;margin-right:1em;" onclick='hideDialog()' class="button red">Cancel</button></span></form></div>
 <script>
@@ -81,6 +90,7 @@ tr:nth-child(even) {
 	});
 	$(document).ready(function(){
 		getData(function(data){dispData(data)});
+		
 	});
 	function getData(callback) {
 		$.ajax({
@@ -91,9 +101,21 @@ tr:nth-child(even) {
 	}
 	function dispData(data)
 	{
-		$("#qaTable").empty();
+		$("#inactiveQATab").empty();
+		$("#activeQATab").empty();
 		for(x in data)
 		{
+			var target = "#inactiveQATab";
+			if(data[x].active && data[x].active === "true")
+			{
+				target = "#activeQATab";
+			}
+			$(target).append("<h3>" + data[x].question + "</h3><div id='" + data[x]._id + "'></div>")
+			for(a in data[x].thoughts)
+			{
+				$("#" + data[x]._id).append("<div id=" + data[x].thoughts[a]._id + ">" + data[x].thoughts[a].message + "</div>")
+			}
+			/*
 			var table = document.createElement("table")
 			var headRow = "<tr><th><button onclick='exportCSV(&quot;" + data[x]._id + "&quot;)'>Export Results (.csv)</button><br>"
 			if(data[x].active && data[x].active === "true")
@@ -117,8 +139,12 @@ tr:nth-child(even) {
 			{
 				$(table).append("<tr><td><button onclick='edit(&quot;" + data[x].thoughts[a]._id + "&quot;)'>Edit</button><button onclick='del(&quot;" + data[x].thoughts[a]._id + "&quot;)'>Delete</button></td><td id=" + data[x].thoughts[a]._id + ">" + data[x].thoughts[a].message + "</td><td>" + new Date(data[x].thoughts[a].timeStamp) + "</td></tr>")
 			}
-			$("#qaTable").prepend(table)
+			*/
+			//$("#qaTable").prepend(table)
 		}
+		//$( "#qaTable" ).accordion();
+		$( "#tabs" ).tabs();
+		$("#inactiveQATab").accordion().accordion( "refresh" );
 	}
 	function edit(aID)
 	{
