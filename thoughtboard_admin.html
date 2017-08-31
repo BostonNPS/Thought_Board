@@ -22,27 +22,6 @@ tr:nth-child(even) {
 	background: lightgoldenrodyellow;
 }
 
-#plus {
-	display:block;
-    z-index: 1001;
-    height: 2em;
-    width: 2em;
-    background-color: rgb(232, 48, 29);
-    border-radius: 1em;
-    position: fixed;
-    bottom: 0px;
-    right: 0px;
-    text-align: center;
-    margin: 1em;
-    line-height: 1.875em;
-    font-size: 2em;
-    font-family:verdana;
-    color: white;
-    font-weight: bolder;
-    text-shadow: -1px -1px 1px rgba(169,169,169,0.5);
-    box-shadow: 2px 2px 20px rgba(0,0,0,.75);
-	cursor:pointer;
-}
 #dialog {
 	position:fixed;
 	z-index:1001;
@@ -71,22 +50,109 @@ tr:nth-child(even) {
 	from{left:50%}
 	to{left:-100%}
 }
+.question {
+font-size:1em;
+}
+.answers{
+height:300px;
+}
+.answer {
+padding:.25em;
+margin:.25em;
+border:1px solid black;
+}
+.suppressed {
+color:red;
+}
+.menu{
+  width:auto;
+	position:absolute;
+  display:none;
+  background-color:white;
+  z-index:100;
+}
+.menu li {
+background-color:white;
+}
+.menu li:hover {
+background-color:lightblue;
+}
+.activateMenu {
+display:inline-block;
+transform:rotate(90deg);
+padding:.25em;
+margin:.25em;
+font-weight:bold;
+cursor:pointer;
+color:black;
+letter-spacing:-.125em;
+vertical-align:middle;
+}
+#iframeWrapper {
+height:540px;
+width: 960px;
+overflow:hidden;
+}
+#previewFrame {
+height:1080px;
+width:1920px;
+transform:scale(.5,.5) translate(-50%,-50%);
+}
+#previewSelect {
+max-width:90%;
+overflow:hidden;
+}
 </style>
 </head>
 <body>
 	<h1>Admin</h1>
 	<div id="tabs">
-	<ul><li><a href="#activeQATab">Active Question</a></li><li><a href="#inactiveQATab">Inactive Questions</a></li></ul>
-	<div id="activeQATab"></div>
+	<ul><li><a href="#activeQATab">Active Question</a></li><li><a href="#inactiveQATab">Inactive Questions</a></li><li><a href="#newQA">Create/Edit/Preview Questions</a></li></ul>
+	<div id="activeQATab" style="height:100%;"></div>
 	<div id="inactiveQATab"></div>
+	<select id="previewSelect" onchange="preview(this.value)"></select>
+	<div id="newQA"><form id="subform" enctype='multipart/form-data'><textarea style="width:100%;height:100px" name="question"></textarea><br><input type="color" name="bgcolor" value="#b3553f"><input type="file" name="image"><span class="btnrow"><input type="submit" class="button blue" style="float:right;"></span></form>
+	<div id="iframeWrapper"><iframe id="previewFrame"></iframe></div>
 	</div>
-	<span id="plus" onclick="showDialog()">+</span>
-	<div id="dialog"><form id="subform" enctype='multipart/form-data'><textarea name="question"></textarea><br><input type="file" name="image"><span class="btnrow"><input type="submit" class="button blue" style="float:right;"><button id="cancel" style="float:right;margin-right:1em;" onclick='hideDialog()' class="button red">Cancel</button></span></form></div>
+	</div>
 <script>
+var dataGlobal = ''; //global set by ajax callbacks.
 	$("#subform").submit(function(e){
 		e.preventDefault();
-		addQuestion(this);
-		hideDialog();
+		if($("textarea[name=question]").val() != "")
+		{
+			if($("#previewSelect").val() == "")//new question if its null
+			{
+				addQuestion(this,function(status){
+					if(status)//success
+					{
+						$("textarea[name=question]").val()
+						$("textarea[name=image]").val()
+					}
+					else
+					{
+						alert("Error in submission");
+					}
+				});
+			}
+			else
+			{
+				editQ(this,function(status){
+					if(status)//success
+					{
+						console.log(status)
+					}
+					else
+					{
+						alert("Error in submission");
+					}
+				});
+			}
+		}
+		else
+		{
+			alert("Question cannot be empty.")
+		}
 	});
 	$(document).ready(function(){
 		getData(function(data){dispData(data)});
@@ -96,25 +162,47 @@ tr:nth-child(even) {
 		$.ajax({
 			dataType:"json",
 			url:"/admin/data",
-			success: function(data){callback(data)}
+			success: function(data){
+			dataGlobal = data
+			callback(data)}
 			});
 	}
 	function dispData(data)
 	{
 		$("#inactiveQATab").empty();
 		$("#activeQATab").empty();
-		for(x in data)
+		$("#previewSelect").html("<option value='' selected>(new question)</option>");
+		for(var x = data.length - 1; x > -1; x--)
 		{
 			var target = "#inactiveQATab";
 			if(data[x].active && data[x].active === "true")
 			{
 				target = "#activeQATab";
 			}
-			$(target).append("<h3>" + data[x].question + "</h3><div id='" + data[x]._id + "'></div>")
-			for(a in data[x].thoughts)
+			var question = "<h3><span class='activateMenu'>&#9702;&#9702;&#9702;</span><ul class='menu'><li class='ui-state-disabled'>" + new Date(data[x].date).toLocaleString() + "</li><li onclick='exportCSV(&quot;" + data[x]._id + "&quot;)'>Export Results (.csv)</li><li onclick='activate(&quot;" + data[x]._id + "&quot;)'>Activate Question</li><li onclick='delQ(&quot;" + data[x]._id + "&quot;)'>Delete Question</li></ul><span style='vertical-align:middle;display:inline-block;width:90%' class='question'>"
+			if(data[x].image)
 			{
-				$("#" + data[x]._id).append("<div id=" + data[x].thoughts[a]._id + ">" + data[x].thoughts[a].message + "</div>")
+				question += "<img style='max-width:250px;max-height:250px;' src='" + data[x].image.path + "'>"
 			}
+			$(target).append(question + data[x].question + "</span></h3>")
+			var answers = "";
+			if(data[x].thoughts)
+			{
+				for(var a = data[x].thoughts.length - 1; a > -1; a--)
+				{
+					var classes = "answer";
+					var suppressSnippet = "<li onclick='toggleSuppress(&quot;" + data[x].thoughts[a]._id + "&quot;,false)'>Suppress from view</li>"
+					if(data[x].thoughts[a].suppressed)
+					{
+						classes += " suppressed"
+						suppressSnippet = "<li onclick='toggleSuppress(&quot;" + data[x].thoughts[a]._id + "&quot;,true)'>Restore into view</li>"
+					}
+					dateStr = new Date(data[x].thoughts[a].timeStamp).toLocaleString();
+					answers += "<div class='" + classes + "' id=" + data[x].thoughts[a]._id + "><span class='activateMenu'>&#9702;&#9702;&#9702;</span><ul class='menu'><li onclick='edit(&quot;" + data[x].thoughts[a]._id + "&quot;)'>Edit</li><li onclick='del(&quot;" + data[x].thoughts[a]._id + "&quot;)'>Delete</li>" + suppressSnippet + "</ul><em>" + dateStr + "</em>: " + data[x].thoughts[a].message + "</div>";
+				}
+			}
+			$("#previewSelect").append("<option value='" + data[x]._id + "'>" + data[x].question + "</option>")
+			$(target).append("<div class='answers' id='" + data[x]._id + "'>" + answers + "</div>");
 			/*
 			var table = document.createElement("table")
 			var headRow = "<tr><th><button onclick='exportCSV(&quot;" + data[x]._id + "&quot;)'>Export Results (.csv)</button><br>"
@@ -142,9 +230,22 @@ tr:nth-child(even) {
 			*/
 			//$("#qaTable").prepend(table)
 		}
+		$(".question *").css("font-size","1em")
 		//$( "#qaTable" ).accordion();
 		$( "#tabs" ).tabs();
-		$("#inactiveQATab").accordion().accordion( "refresh" );
+		$("#inactiveQATab").accordion({collapsible:true}).accordion( "refresh" );
+		$(".activateMenu").on("click", function(e){
+			e.stopPropagation();
+			$(".active").removeClass("active").menu().hide();
+			$(e.target.parentElement).children(".menu").addClass("active").menu().toggle().position({
+        my: "left top", 
+        at: "left bottom", 
+        of: $(this), 
+        collision: "fit flip"});
+			});
+		$(document).on("click",function(){
+			$(".active").removeClass("active").menu().hide();
+		});
 	}
 	function edit(aID)
 	{
@@ -173,6 +274,32 @@ tr:nth-child(even) {
 			})
 		}
 	}
+	function editQ(fdata,callback)
+	{
+		//var q = prompt("Enter a new Question")
+		var data = new FormData(fdata);
+		console.log()
+		console.log(data)
+		$.ajax({
+			type:"POST",
+			url:"/admin/question/edit/" + $("#previewSelect").val(),
+			contentType:false,
+			processData:false,
+			data: data,
+			success:function(res){
+					console.log(res);
+					getData(function(data){
+						dispData(data);
+						callback(true);
+						preview(res._id)
+					});	
+				},
+			error:function()
+				{
+					callback(false);
+				}
+			})
+	}
 	function delQ(qID)
 	{
 		var conf = confirm("Are you sure you want to delete this question and all answers?")
@@ -200,13 +327,31 @@ tr:nth-child(even) {
 			})
 		*/
 	}
+	
+	function toggleSuppress(id,curState)
+	{
+		var url = "/suppress/" + id //default is unsuppressed needing to be suppressed.
+		if(curState)//if already suppressed, unsupress
+		{
+			url = "/admin/unsuppress/" + id
+		}
+		$.ajax({
+			url:url,
+			success:function(d){
+					console.log(d)
+					getData(function(data){
+						dispData(data)
+					});	
+				}
+			})
+	}
 	function showDialog(){
 		document.getElementById("dialog").style.animationName = "showDialog";
 	}
 	function hideDialog() {
 		document.getElementById("dialog").style.animationName = "hideDialog";
 	}
-	function addQuestion(fdata)
+	function addQuestion(fdata,callback)
 	{
 		//var q = prompt("Enter a new Question")
 		var data = new FormData(fdata);
@@ -217,12 +362,47 @@ tr:nth-child(even) {
 			contentType:false,
 			processData:false,
 			data: data,
-			success:function(){
+			success:function(res){
+					preview(res._id)
 					getData(function(data){
-						dispData(data)
+						dispData(data);
+						callback(true);
 					});	
+				},
+			error:function()
+				{
+					callback(false);
 				}
 			})
+	}
+	function preview(id)
+	{
+		if(id)
+		{
+		$("#previewSelect").val(id)
+		$("#previewFrame").attr("src","/app?preview="+id);
+		for(x in dataGlobal)
+		{
+			if(dataGlobal[x]._id == id)
+			{
+				console.log(dataGlobal[x])
+				$("textarea[name=question]").val(dataGlobal[x].question);
+				if(dataGlobal[x].bgcolor)
+				{
+					$("input[name=bgcolor]").val(dataGlobal[x].bgcolor);
+				}
+				else
+				{
+					$("input[name=bgcolor]").val('#b3553f');
+				}
+			}
+		}
+		}
+		else
+		{
+			$("#previewFrame").attr("src","");	
+			$("textarea[name=question]").val("")
+		}
 	}
 	function activate(id)
 	{
@@ -231,6 +411,7 @@ tr:nth-child(even) {
 			success:function(){
 					getData(function(data){
 						dispData(data)
+						$("#tabs").tabs("option", "active", 0);
 					});	
 				}
 			})

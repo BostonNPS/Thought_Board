@@ -283,8 +283,55 @@ div.mediaBox img {
 <span id="body"></span>
 <span id="plus" class="hint" onclick="showDialog()">+</span>
 <script>
-  var socket = io();
-  
+var socket = io();
+var previewMode = false;
+if(window.location.search.substring(1))
+{
+	params = window.location.search.substring(1).split("&")
+	for(var x =0; x < params.length; x++)
+	{
+		var pair = params[x]
+		if(pair.split("=")[0] == "bg")
+		{
+			$('body').css("background",pair.split("=")[1]);
+		}
+		if(pair.split("=")[0] == "preview")
+		{
+			previewMode = pair.split("=")[1];
+		}
+		
+	}
+}
+if(previewMode)
+{
+	$.ajax({
+		dataType:"json",
+		url:"/admin/data",
+		success: function(data){
+				for(x in data)
+				{
+					if(data[x]._id == previewMode)
+					{
+						$("#question").html(data[x].question)
+						if(data[x].image)
+						{
+						var media = document.createElement("div");
+						media.className = "mediaBox";
+						media.innerHTML = "<img src='" + data[x].image.path + "'>"
+						document.getElementById("body").appendChild(media)
+						}
+						if(data[x].bgcolor)
+						{
+							$('body').css("background",data[x].bgcolor);
+						}
+					}
+				}
+			}
+		
+		});
+}
+else
+{
 socket.on('data', function(json){
 	document.getElementById("body").innerHTML = '';
 	var query = JSON.parse(json)
@@ -295,6 +342,10 @@ socket.on('data', function(json){
 		media.className = "mediaBox";
 		media.innerHTML = "<img src='" + query.image.path + "'>"
 		document.getElementById("body").appendChild(media)
+	}
+	if(query.bgcolor)
+	{
+		$('body').css("background",query.bgcolor);
 	}
 	var thoughts = query.thoughts
 	for(var x=0;x<thoughts.length;x++)
@@ -344,11 +395,6 @@ socket.on('minimizeThought',function(id){
 	div.className = "thought minimizedThought"
 });
 
-if(window.location.search == "?kiosk") //show input button if on iPad, input kiosk, etc.
-{
-	document.getElementById("plus").style.display = "block"
-}
-
 function highlight(e)
 {
 	socket.emit("highlight",{id:e.target.id})
@@ -384,6 +430,7 @@ document.getElementById("submit").addEventListener("touchstart", function (e) {
 	e.preventDefault();
 	submit();
 });
+}
 </script>
 </body>
 </html>

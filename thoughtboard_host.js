@@ -123,6 +123,22 @@ function newQuestion(q,callback) { //q is a valid document object to insert into
 	});
 }
 
+function editQuestion(id,setObj,callback) { //use id of response plus object of new properties to update
+	MongoClient.connect(DBurl, function(err,db){
+		var collection = db.collection("QAs");
+		var success = true
+		collection.updateOne({"_id" : new ObjectID(id)},{"$set":setObj},function(err,results){
+			if(err)
+			{
+				console.log(err);
+				success = false;
+			}
+			callback(success, results);
+		});
+		db.close();
+	});
+}
+
 function deleteQA(id,callback) {
 	MongoClient.connect(DBurl, function(err,db){
 		var collection = db.collection("QAs");
@@ -339,6 +355,9 @@ app.all("/admin/*",function(req,res,next){
 app.get('/app', function(req, res){
 	res.sendFile(__dirname + '/thoughtboard_client.html');
 });
+app.get('/kiosk', function(req, res){
+	res.sendFile(__dirname + '/kiosk.html');
+});
 
 app.get('/data', function(req,res){
 	getActiveQA(function(q){res.json(JSON.stringify(q))})
@@ -346,6 +365,11 @@ app.get('/data', function(req,res){
 
 app.get('/suppress/:id', function(req,res){
 	answerSuppression(req.params.id,true,function(q){res.json(JSON.stringify(q))})
+	setupQuestionAnswers();
+});
+
+app.get('/admin/unsuppress/:id', function(req,res){
+	answerSuppression(req.params.id,false,function(q){res.json(JSON.stringify(q))})
 	setupQuestionAnswers();
 });
 
@@ -363,6 +387,26 @@ app.post('/admin/question/add', uploads.single('image'),function(req,res){
 						res.json(docs[0])
 					});
 				}
+			});
+		});
+app.post('/admin/question/edit/:id', uploads.single('image'),function(req,res){
+			var now = new Date();
+			var updateObj = {}
+			if(req.file)
+			{
+				updateObj.image = req.file;
+			}
+			if(req.body.question)
+			{
+				updateObj.question = req.body.question;
+			}
+			if(req.body.bgcolor)
+			{
+				updateObj.bgcolor = req.body.bgcolor;
+			}
+			//res.json(updateObj);
+			editQuestion(req.params.id,updateObj,function(success,results){
+				res.json({"_id":req.params.id})
 			});
 		});
 
