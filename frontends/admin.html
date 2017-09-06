@@ -88,33 +88,70 @@ color:black;
 letter-spacing:-.125em;
 vertical-align:middle;
 }
-#iframeWrapper {
+.iframeWrapper {
 height:540px;
 width: 960px;
 overflow:hidden;
 }
-#previewFrame {
+#displayPreviewFrame {
 height:1080px;
 width:1920px;
+transform:scale(.5,.5) translate(-50%,-50%);
+}
+#kioskPreviewFrame {
+height:768px;
+width:1024px;
 transform:scale(.5,.5) translate(-50%,-50%);
 }
 #previewSelect {
 max-width:90%;
 overflow:hidden;
 }
+select {
+background-position:98% 50%;
+}
+#loader{
+position:absolute;
+top:0;
+left:0;
+background-color: white;
+height:100%;
+width:100%;
+transition:opacity .25s;
+opacity: 1;
+}
+#loader img{
+position:fixed;
+top:45%;
+left:50%;
+transform: translate(-50%, -50%)
+}
+#notifier{
+display:none;
+text-align:center;
+position:fixed;
+top:60%;
+left:50%;
+transform: translate(-50%, -50%)
+}
 </style>
 </head>
-<body>
+<body style="margin:1em;">
 	<h1>Admin</h1>
 	<div id="tabs">
 	<ul><li><a href="#activeQATab">Active Question</a></li><li><a href="#inactiveQATab">Inactive Questions</a></li><li><a href="#newQA">Create/Edit/Preview Questions</a></li></ul>
 	<div id="activeQATab" style="height:100%;"></div>
 	<div id="inactiveQATab"></div>
-	<select id="previewSelect" onchange="preview(this.value)"></select>
-	<div id="newQA"><form id="subform" enctype='multipart/form-data'><textarea style="width:100%;height:100px" name="question"></textarea><br><input type="color" name="bgcolor" value="#b3553f"><input type="file" name="image"><span class="btnrow"><input type="submit" class="button blue" style="float:right;"></span></form>
-	<div id="iframeWrapper"><iframe id="previewFrame"></iframe></div>
+	<div id="newQA">
+	Question to Preview/Edit: <select id="previewSelect" onchange="preview(this.value)"></select>
+	<form id="subform" enctype='multipart/form-data'>Question (may include valid HTML/CSS):<textarea style="width:100%;height:100px" name="question"></textarea><br>Background Color: <input type="color" name="bgcolor" value="#b3553f"><br><span id="imageLabel">Media (Image or video placeholder thumbnail): </span><input type="file" name="image" accept="image/*"><br><span id="videoLabel">Media (Video): </span><input type="file" name="video"accept="video/*"><span class="btnrow"><input type="submit" class="button blue" style="float:right;"></span></form>
+	<h4>Display screen preview (1080x1920 widescreen):</h4>
+	<div class="iframeWrapper"><iframe id="displayPreviewFrame"></iframe></div>
+	<h4>Kiosk screen preview (768x1024 iPad landscape):</h4>
+	<div class="iframeWrapper"><iframe id="kioskPreviewFrame"></iframe></div>
 	</div>
 	</div>
+	<div id="loader"><img src="/lib/images/gif-load.gif"><h2 id="notifier">Uploading media...<br><br><progress></progress></h2></div>
 <script>
 var dataGlobal = ''; //global set by ajax callbacks.
 	$("#subform").submit(function(e){
@@ -128,6 +165,8 @@ var dataGlobal = ''; //global set by ajax callbacks.
 					{
 						$("textarea[name=question]").val()
 						$("textarea[name=image]").val()
+						$("#imageLabel").html("Media (Image or video placeholder thumbnail): ");
+						$("#videoLabel").html("Media (Video): ");
 					}
 					else
 					{
@@ -159,6 +198,8 @@ var dataGlobal = ''; //global set by ajax callbacks.
 		
 	});
 	function getData(callback) {
+		$("#loader").css("display","block");
+		$("#loader").css("opacity",".5");
 		$.ajax({
 			dataType:"json",
 			url:"/admin/data",
@@ -172,14 +213,14 @@ var dataGlobal = ''; //global set by ajax callbacks.
 		$("#inactiveQATab").empty();
 		$("#activeQATab").empty();
 		$("#previewSelect").html("<option value='' selected>(new question)</option>");
-		for(var x = data.length - 1; x > -1; x--)
+		for(var x = 0; x < data.length; x++)
 		{
 			var target = "#inactiveQATab";
-			if(data[x].active && data[x].active === "true")
+			if(data[x].active && data[x].active === true)
 			{
 				target = "#activeQATab";
 			}
-			var question = "<h3><span class='activateMenu'>&#9702;&#9702;&#9702;</span><ul class='menu'><li class='ui-state-disabled'>" + new Date(data[x].date).toLocaleString() + "</li><li onclick='exportCSV(&quot;" + data[x]._id + "&quot;)'>Export Results (.csv)</li><li onclick='activate(&quot;" + data[x]._id + "&quot;)'>Activate Question</li><li onclick='delQ(&quot;" + data[x]._id + "&quot;)'>Delete Question</li></ul><span style='vertical-align:middle;display:inline-block;width:90%' class='question'>"
+			var question = "<h3><span class='activateMenu'>&#9702;&#9702;&#9702;</span><ul class='menu'><li class='ui-state-disabled'>Created: " + new Date(data[x].date).toLocaleString() + "</li><li onclick='exportCSV(&quot;" + data[x]._id + "&quot;)'>Export Results (.csv)</li><li onclick='activate(&quot;" + data[x]._id + "&quot;)'>Activate Question</li><li onclick='preview(&quot;" + data[x]._id + "&quot;)'>Preview/Edit Question</li><li onclick='delQ(&quot;" + data[x]._id + "&quot;)'>Delete Question</li></ul><span style='vertical-align:middle;display:inline-block;width:90%' class='question'>"
 			if(data[x].image)
 			{
 				question += "<img style='max-width:250px;max-height:250px;' src='" + data[x].image.path + "'>"
@@ -188,7 +229,7 @@ var dataGlobal = ''; //global set by ajax callbacks.
 			var answers = "";
 			if(data[x].thoughts)
 			{
-				for(var a = data[x].thoughts.length - 1; a > -1; a--)
+				for(var a = data[x].thoughts.length - 1; a > -1; a--)//put in descending order with most recent in first.
 				{
 					var classes = "answer";
 					var suppressSnippet = "<li onclick='toggleSuppress(&quot;" + data[x].thoughts[a]._id + "&quot;,false)'>Suppress from view</li>"
@@ -246,6 +287,9 @@ var dataGlobal = ''; //global set by ajax callbacks.
 		$(document).on("click",function(){
 			$(".active").removeClass("active").menu().hide();
 		});
+		$("#loader").css("opacity","0");
+		$("#loader").css("display","none");
+		$("#notifier").css("display","none");
 	}
 	function edit(aID)
 	{
@@ -280,12 +324,30 @@ var dataGlobal = ''; //global set by ajax callbacks.
 		var data = new FormData(fdata);
 		console.log()
 		console.log(data)
+		$("#loader").css("display","block");
+        $("#notifier").css("display","block");
+		$("#loader").css("opacity","1");
 		$.ajax({
 			type:"POST",
 			url:"/admin/question/edit/" + $("#previewSelect").val(),
 			contentType:false,
 			processData:false,
 			data: data,
+			xhr: function() {
+				var myXhr = $.ajaxSettings.xhr();
+				if (myXhr.upload) {
+					// For handling the progress of the upload
+					myXhr.upload.addEventListener('progress', function(e) {
+						if (e.lengthComputable) {
+							$('progress').attr({
+								value: e.loaded,
+								max: e.total,
+							});
+						}
+					} , false);
+				}
+				return myXhr;
+			},
 			success:function(res){
 					console.log(res);
 					getData(function(data){
@@ -356,12 +418,30 @@ var dataGlobal = ''; //global set by ajax callbacks.
 		//var q = prompt("Enter a new Question")
 		var data = new FormData(fdata);
 		console.log(data)
+		$("#loader").css("display","block");
+        $("#notifier").css("display","block");
+		$("#loader").css("opacity","1");
 		$.ajax({
 			type:"POST",
 			url:"/admin/question/add",
 			contentType:false,
 			processData:false,
 			data: data,
+			        xhr: function() {
+            var myXhr = $.ajaxSettings.xhr();
+            if (myXhr.upload) {
+                // For handling the progress of the upload
+                myXhr.upload.addEventListener('progress', function(e) {
+                    if (e.lengthComputable) {
+                        $('progress').attr({
+                            value: e.loaded,
+                            max: e.total,
+                        });
+                    }
+                } , false);
+            }
+            return myXhr;
+        },
 			success:function(res){
 					preview(res._id)
 					getData(function(data){
@@ -379,8 +459,10 @@ var dataGlobal = ''; //global set by ajax callbacks.
 	{
 		if(id)
 		{
+		$("#tabs").tabs("option", "active", 2);
 		$("#previewSelect").val(id)
-		$("#previewFrame").attr("src","/app?preview="+id);
+		$("#displayPreviewFrame").attr("src","/app?preview="+id);
+		$("#kioskPreviewFrame").attr("src","/kiosk?preview="+id);
 		for(x in dataGlobal)
 		{
 			if(dataGlobal[x]._id == id)
@@ -395,13 +477,33 @@ var dataGlobal = ''; //global set by ajax callbacks.
 				{
 					$("input[name=bgcolor]").val('#b3553f');
 				}
+				if(dataGlobal[x].image)
+				{
+					$("#imageLabel").html("Current Image: " + dataGlobal[x].image.originalname + " Upload new file to replace. No action retains file. ");
+				}
+				else
+				{
+					$("#imageLabel").html("No viceo for this question. Upload to add one if you wish.");
+				}
+				if(dataGlobal[x].video)
+				{
+					$("#videoLabel").html("Current Video: " + dataGlobal[x].video.originalname + " Upload new file to replace. No action retains file. ");
+				}
+				else
+				{
+					$("#videoLabel").html("No video for this question. Upload to add one if you wish. You must also add a placeholder/thumbnail image in the image upload.");
+				}
 			}
 		}
 		}
 		else
 		{
-			$("#previewFrame").attr("src","");	
-			$("textarea[name=question]").val("")
+			$("#displayPreviewFrame").attr("src","");	
+			$("#kioskPreviewFrame").attr("src","");	
+			$("input[name=bgcolor]").val('#b3553f');
+			$("textarea[name=question]").val("");
+			$("#imageLabel").html("Media (Image or video placeholder thumbnail): ");
+			$("#videoLabel").html("Media (Video): ");
 		}
 	}
 	function activate(id)

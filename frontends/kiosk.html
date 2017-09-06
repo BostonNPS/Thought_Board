@@ -1,52 +1,63 @@
 <html>
 <head>
-<meta name=viewport content="width=device-width, initial-scale=1">
+<meta name=viewport content="width=device-width, initial-scale=1, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
+<link rel="stylesheet" type="text/css" href="/lib/jquery-ui.min.css">
 <style>
-
 .thought {
-
-	transform:translate(-50%,-50%);
-	position:absolute;
-	transition:left 5s, top 5s;
-	transition-timing-function: linear;
-	padding:10px;
-border-radius:10px;
-background:white;
+    margin: 2em;
+    /* padding-top: 3em; */
+    margin-left: 1em;
+    /* padding-bottom: 3em; */
+    /* border-radius: .5em; */
+    /* border: 26px solid black; */
+    /* background-image: url(/thought_cloud.svg); */
+    display: inline-block;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center center;
+    background: white;
+    border-radius: 10px;
+    padding: 10px;
 }
 
+.outerThought
+{
+	margin-top:1em;
+    max-width: 400px;
+	min-width:100px;
+	margin-bottom:-1em;
+}
 .innerThought
 {
-	padding-left:1em;
-    max-width: 600px;
+	text-overflow:ellipsis;
 }
-.innerThought::after {
-    content: url(speech_point.png);
-    top: 2em;
-    left: -1.5em;
+.outerThought::after {
+    content: url(/lib/images/speech_point.png);
+    top: .875em;
+    left: 1em;
     position: relative;
 }
 
 @keyframes pop {
-	0% {transform:scale(4) translateX(0%);}
-	75% { transform:scale(0.5) translateX(-50%);}
-	100% { transform:scale(1) translateX(-25%);}
+	0% {transform:scale(4)}
+	75% { transform:scale(0.5)}
+	100% { transform:scale(1)}
 	
 }
 @keyframes maximize {
-	0% {transform:scale(1) translateX(-50%)}
-	100% { transform:scale(2) translateX(-25%)}
+	0% {transform:scale(1)}
+	100% { transform:scale(2)}
 	
 }
 @keyframes minimize {
-	0% {transform:scale(2) translateX(-25%)}
-	100% { transform:scale(1) translateX(-50%)}
+	0% {transform:scale(2)}
+	100% { transform:scale(1)}
 	
 }
 .popIn {
-	animation-fill-mode:forwards;
 	animation-duration:2s;
 	animation-name:pop;
 }
@@ -66,19 +77,7 @@ background:white;
 	animation-name:minimize;
 
 }
-
-#body {
-height:200%;
-width:200%;
-display:block;
-position:fixed;
-overflow-x:hidden;
-overflow-y:hidden;
-top:-50%;
-left:-50%;
-}
 #plus {
-	display:none;
     z-index: 1001;
     height: 2em;
     width: 2em;
@@ -180,14 +179,9 @@ input[type="text"] {
 	
 }
 #question {
-    position: fixed;
-    z-index: 1001;
-    display: block;
-    /*max-height: 15%;*/
     width: 100%;
     text-align: center;
-    /*top: 0;*/
-    left: 0;
+	max-height:50%;
     background: rgba(0,0,0,0.75);
     box-shadow: 0px 0px 10px 2px rgba(0,0,0,0.75);
     padding: .5em;
@@ -197,28 +191,97 @@ input[type="text"] {
     overflow:hidden;
     
 }
-@media screen and (max-width: 1024px) {
-#question {
-top:0;
-}
-}
 
-@media screen and (min-width: 1025px) {
-#question {
-bottom:0;
-}
-}
-div.mediaBox {
-	height: 75%;
+#mediaBox {
+	height: 25%;
     width: 100%;
-    position: absolute;
+    /*position: absolute;
     top: 45%;
     transform: translateY(-50%);
     text-align: center;
-    /*z-index:999;*/
+    z-index:999;*/
 }
-div.mediaBox img {
+#mediaBox img {
+	max-height:100%;
+	max-width:100%;
+}
+.zoom-icon{
+    background-image: url(/lib/images/magnify-zoom-white.png);
+	background-repeat:no-repeat;
+	background-size: contain;
+    top: -20%;
+    left: 66.667%;
+    position: relative;
+	height:2em;
+	width:2em;
+}
+#fullscreenMedia {
+	background: rgba(0,0,0,0.75);
+	position:fixed;
+	top:0;
+	left:0;
+	width:100%;
 	height:100%;
+	z-index:1000;
+	visibility:hidden;
+	opacity:0;
+	animation-fill-mode:forwards;
+	animation-duration: 1s;
+}
+#fullscreenMedia img {
+max-width:100%;
+max-height:100%;
+}
+#fullscreenMedia video {
+max-width:100%;
+max-height:100%;
+}
+.fullscreenMediaFadeIn
+{
+	animation-name:fadeInFromHidden
+}
+.fullscreenMediaFadeOut
+{
+	animation-name:fadeOutFromHidden
+}
+@keyframes fadeInFromHidden {
+    0% {
+        visibility: hidden;
+        opacity: 0;
+    }
+
+    1% {
+        visibility: visible;
+        opacity: 0;
+    }
+
+    100% {
+        visibility: visible;
+        opacity: 1;
+    }
+}
+@keyframes fadeOutFromHidden {
+    0% {
+        visibility: visible;
+        opacity: 1;
+    }
+
+    99% {
+        visibility: visible;
+        opacity: 0;
+    }
+
+    100% {
+        visibility: hidden;
+        opacity: 0;
+    }
+}
+
+#fullscreenMedia img{
+position:relative;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
 }
 .button {
 	
@@ -271,20 +334,62 @@ div.mediaBox img {
 	color: white;
 	text-shadow: 0 1px rgba(0, 0, 0, 0.1);
 }
+#admin_edit {
+position:fixed;
+top:0;
+right:0;
+margin:.5em;
+}
+.deleteIconInactive{
+	display:none;
+}
+.deleteIconActive{
+	display:inline-block;
+	cursor:pointer;
+}
 </style>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/lib/jquery.js"></script>
 <script src="/twemoji/twemoji.min.js"></script>
 </head>
 
-<body style="overflow:hidden;height:100%;width:100%;margin:0;font-family:sans-serif;background:rgb(179, 85, 63)">
-<span id="question"></span>
+<body style="height:100%;width:100%;margin:0;font-family:sans-serif;background:rgb(179, 85, 63)">
+<div id="question"></div>
+<div id="fullscreenMedia"></div>
 <span id="dialog"><form><input type="text" id="response"></input><span class="btnrow">Type your own response to the question and post it to the wall by clicking "Submit".<br>Please promote discussion by keeping responses appropriate for all audiences.</span><span class="btnrow"><input id="submit" type="submit" class="button blue" style="float:right;"><button id="cancel" style="float:right;margin-right:1em;" onclick='hideDialog()' class="button red">Cancel</button></span></form></span>
 <span id="body"></span>
 <span id="plus" class="hint" onclick="showDialog()">+</span>
+<div id="admin_edit"><span class="ui-icon ui-icon-pencil"></span>
 <script>
-var socket = io();
+var adminOn = false;
+  var socket = io();
 var previewMode = false;
+$("#fullscreenMedia").on("click",function(e){
+	$("#fullscreenMedia").removeClass("fullscreenMediaFadeIn");
+	$("#fullscreenMedia").addClass("fullscreenMediaFadeOut");
+	
+})
+function attachMedia(obj){
+	if(obj.video)
+	{
+		$("#question").append("<div id='mediaBox'><img src=" + obj.image.path + "><div class='zoom-icon'></div><div>");
+			$("#fullscreenMedia").html("<video controls><source src='" + obj.video.path + "." + obj.video.mimetype.split("/")[1] + "' type='" + obj.video.mimetype + "'>There is a problem with the video.</video>");
+			$("#mediaBox").on("click",function(e){
+				$("#fullscreenMedia").addClass("fullscreenMediaFadeIn");
+				$("#fullscreenMedia").removeClass("fullscreenMediaFadeOut");
+				$("video")[0].play()
+			});
+	}
+	else
+	{
+		$("#question").append("<div id='mediaBox'><img src=" + obj.image.path + "><div class='zoom-icon'></div><div>");
+			$("#fullscreenMedia").html("<img src=" + obj.image.path + ">");
+			$("#mediaBox").on("click",function(e){
+				$("#fullscreenMedia").addClass("fullscreenMediaFadeIn");
+				$("#fullscreenMedia").removeClass("fullscreenMediaFadeOut");
+			});
+	}
+}
 if(window.location.search.substring(1))
 {
 	params = window.location.search.substring(1).split("&")
@@ -313,12 +418,9 @@ if(previewMode)
 					if(data[x]._id == previewMode)
 					{
 						$("#question").html(data[x].question)
-						if(data[x].image)
+						if(data[x].image || data[x].video)
 						{
-						var media = document.createElement("div");
-						media.className = "mediaBox";
-						media.innerHTML = "<img src='" + data[x].image.path + "'>"
-						document.getElementById("body").appendChild(media)
+							attachMedia(data[x]);
 						}
 						if(data[x].bgcolor)
 						{
@@ -330,61 +432,50 @@ if(previewMode)
 		
 		});
 }
-else
-{
-socket.on('data', function(json){
-	document.getElementById("body").innerHTML = '';
-	var query = JSON.parse(json)
-	document.getElementById("question").innerHTML = query.question;
-	if(query.image)
-	{
-		var media = document.createElement("div");
-		media.className = "mediaBox";
-		media.innerHTML = "<img src='" + query.image.path + "'>"
-		document.getElementById("body").appendChild(media)
-	}
-	if(query.bgcolor)
-	{
-		$('body').css("background",query.bgcolor);
-	}
-	var thoughts = query.thoughts
-	for(var x=0;x<thoughts.length;x++)
-	{
-		var div = document.createElement("div");
-		//div.innerHTML = twemoji.parse(thoughts[x].message);
-		div.innerHTML = "<div class='innerThought'>" + twemoji.parse(thoughts[x].message) + "</div>";
-		div.style.left = thoughts[x].x + "%";
-		div.style.top = thoughts[x].y + "%";
-		div.id = thoughts[x]._id;
-		div.className = "thought";
-		if(thoughts[x].highlighted == "true")
+else{
+ socket.on('data', function(json){
+	$(".thought").remove()
+
+	//$.getJSON('/data',function(json){
+		q = JSON.parse(json);
+		console.log(JSON.stringify(q.suppressed));
+		$("#question").empty();
+		if(q.bgcolor)
 		{
-			div.className += " maximizedThought"
+			$('body').css("background",q.bgcolor);
 		}
-		div.addEventListener("click", function(e){highlight(e)})
-		document.getElementById("body").appendChild(div);
-	}
-});
-socket.on('animateUpdate', function(json){
-	divs = document.getElementsByClassName("thought");
-		var query = JSON.parse(json)
-		var thoughts = query.thoughts
-	for(var x=0;x<thoughts.length;x++)
-	{
-		divs[x].style.left = thoughts[x].x + "%"
-		divs[x].style.top = thoughts[x].y + "%"
-	}
-});
+		else
+		{
+			$('body').css("background","rgb(179, 85, 63)");
+		}
+		if(q.image || q.video)
+		{
+			attachMedia(q);
+		}
+		 $("#question").append(q.question);
+		for(var x = 0; x < q.thoughts.length; x++)
+		{
+			var adminClass = "deleteIconInactive "
+			if(adminOn)
+			{
+				adminClass = "deleteIconActive "
+			}
+			$("<div class='thought' onclick='highlight(&quot;" + q.thoughts[x]._id + "&quot;)' id='" + q.thoughts[x]._id + "'><span class='admin " + adminClass + "ui-icon ui-icon-close'></span><div class='outerThought'><div class='innerThought'>" + twemoji.parse(q.thoughts[x].message) + "</div></div></div>").insertAfter("#question");
+		}
+	//})
+
+ //location.reload()
+ 
+ });
 socket.on('newThought',function(json){
 	var newThought = JSON.parse(json);
-	var div = document.createElement("div");
-	div.innerHTML = twemoji.parse(newThought.message);
-	div.style.left = newThought.x + "%";
-	div.style.top = newThought.y + "%";
-	div.id = newThought._id;
-	div.className = "thought popIn";
-	div.addEventListener("click", function(e){highlight(e)})
-	document.getElementById("body").appendChild(div);
+			var adminClass = "deleteIconInactive "
+			if(adminOn)
+			{
+				adminClass = "deleteIconActive "
+			}
+	$("<div class='thought popIn' onclick='highlight(&quot;" + newThought._id + "&quot;)' id='" + newThought._id + "'><span class='admin " + adminClass + "ui-icon ui-icon-close'></span><div class='outerThought'><div class='innerThought'>" + twemoji.parse(newThought.message) + "</div></div></div>").insertAfter("#question");
+	//$('html, body').animate({scrollTop: document.documentElement.scrollHeight}, 2000,function(){})
 });
 socket.on('maximizeThought',function(id){
 	var div = document.getElementById(id);
@@ -395,11 +486,22 @@ socket.on('minimizeThought',function(id){
 	div.className = "thought minimizedThought"
 });
 
-function highlight(e)
+function highlight(id)
 {
-	socket.emit("highlight",{id:e.target.id})
+	console.log("Click");
+	if(adminOn)
+	{
+		var url = "/suppress/" + id;
+		console.log(url)
+		$.ajax({type:"GET", url:url,success:function(res){console.log(res)}});
+		adminTimeout = adminTimeoutDefault;
+	}
+	else
+	{
+		socket.emit("highlight",{id:id})
+	}
 }
-
+}
 function showDialog(){
 	document.getElementById("plus").style.animationName = "hidePlus";
 	document.getElementById("dialog").style.animationName = "showDialog";
@@ -430,7 +532,88 @@ document.getElementById("submit").addEventListener("touchstart", function (e) {
 	e.preventDefault();
 	submit();
 });
+
+document.getElementById("admin_edit").addEventListener("click",function(e){
+	if(adminOn)
+	{
+		disableAdmin();
+	}
+	else
+	{
+		var pass = prompt("");
+		enableAdmin(pass)
+	}
+});
+
+function enableAdmin(passcode){
+	if(passcode === "1974")
+	{
+		adminOn = true
+		$(".admin").addClass('deleteIconActive')
+		$(".admin").removeClass('deleteIconInactive')
+		adminTimeout = adminTimeoutDefault;
+	}
 }
+function disableAdmin(){
+		$(".admin").removeClass('deleteIconActive');
+		$(".admin").addClass('deleteIconInactive');
+		adminOn=false;
+}
+function remove(id)
+{
+/*
+	$.ajax({
+	type:'GET',
+	url: '/suppress/' + id,
+	success: function(data){
+		alert(data)
+		},
+	error: function(xhr,status,error){
+	alert(error)
+	}
+	})*/
+var xhttp = new XMLHttpRequest();
+xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+       // Typical action to be performed when the document is ready:
+       alert(xhttp.responseText);
+    }
+};
+xhttp.open("GET", "/suppress/" + id, true);
+xhttp.send();
+	adminTimeout = adminTimeoutDefault;
+}
+
+var adminTimeoutDefault = 20
+var adminTimeout = 20
+
+setInterval(function(){
+	adminTimeout--;
+	if(adminTimeout == 0)
+	{
+		disableAdmin()
+	}
+},1000)
+
+var scrollUpTimerDefault = 60
+var scrollUpTimer = 60
+
+
+//autoscroll to top after aminute of scrolling down
+setInterval(function(){
+	scrollUpTimer--;
+	if(scrollUpTimer == 0)
+	{
+		$('html, body').animate({scrollTop: 0},2000);
+		//scrollUpTimer = scrollUpTimerDefault
+	}
+	//console.log(scrollUpTimer)
+},1000)
+
+$(document).scroll(function(){
+	scrollUpTimer = scrollUpTimerDefault;
+})
+
 </script>
 </body>
 </html>

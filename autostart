@@ -1,9 +1,9 @@
 #!/bin/bash
 #sleep 30
-cd /home/pi/Thought_Board/
+cd /home/pi/Comment_Wall/
 export THOUGHT_ADMIN_USER=kiosk
 export THOUGHT_ADMIN_PASS=ipad
-node thoughtboard_host.js &
+node server.js &
 sleep 30
 chromium-browser --kiosk --incognito http://localhost:8000/app &
 xset -dpms # disable DPMS (Energy Star) features.
