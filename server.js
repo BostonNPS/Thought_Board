@@ -386,7 +386,24 @@
 	uploadFields = uploads.fields([{name:'image',maxCount:1},{name:"video",maxCount:1}])
 	app.post('/admin/question/add', uploadFields,function(req,res){
 				var now = new Date();
-				newQuestion({"question":req.body.question,"date":now,"image":req.files['image'][0],"video":req.files['video'][0],"active":"false"},function(success){
+                                var Obj = {
+					"question":req.body.question,
+					"date":now,
+					"active":false,
+				}
+                                if(req.files['image'])
+                                {
+                                        Obj.image = req.files['image'][0];
+                                }
+                                if(req.files['video'])
+                                {
+                                        Obj.video = req.files['video'][0];
+                                }
+                                if(req.body.bgcolor)
+                                {
+                                        Obj.bgcolor = req.body.bgcolor;
+                                }
+				newQuestion(Obj,function(success){
 					if(success)
 					{
 						getQA(success,function(docs){
