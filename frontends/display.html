@@ -324,10 +324,11 @@ if(previewMode)
 						{
 							$("#mediaBox").html("<img src='" + data[x].image.path + "'>")
 						}
+/*
 						if(data[x].image && /video/.test(data[x].image.mimetype))
 						{
 							$("#mediaBox").html("<video autoplay loop><source src='" + data[x].image.path + "' type='" + data[x].image.mimetype + "'>There is a problem with the video.</video>")
-						}
+						}*/
 						if(data[x].bgcolor)
 						{
 							$('body').css("background",data[x].bgcolor);
@@ -347,6 +348,10 @@ socket.on('data', function(json){
 	if(query.image)
 	{
 		$("#mediaBox").html("<img src='" + query.image.path + "'>")
+	}
+	else
+	{
+		$("#mediaBox").html("");
 	}
 	if(query.bgcolor)
 	{
