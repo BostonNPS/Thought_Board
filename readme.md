@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #Interactive Comment Wall
 This "Comment Wall" is built to facilitate a dialog among visitors in pubic institutions like museums, historic sites, and visitor centers. It can be used in a number of flexible ways: Single tablets, mutiple tablets, or tablets used in unison with large display(s) to mirror output. Questions are input and managed via a web-based admin interface. Responses are collected from the public via kiosks running on tablets such as iPads. Responses appear on all displays and form the larger cloud of ideas and responses to the central question currently activated. Questions could be direct responses; however the intention is to use this app to pose deeper thought provoking questions to the public and elicit many different responses. Questions can use images or videos, and responses can involve a combination of polls and free commenting.
 
