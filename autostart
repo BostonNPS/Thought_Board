@@ -1,11 +1,9 @@
 #!/bin/bash
 #sleep 30
 cd /home/pi/Comment_Wall/
-export THOUGHT_ADMIN_USER=kiosk
-export THOUGHT_ADMIN_PASS=ipad
-node server.js &
+sudo THOUGHT_ADMIN_USER=kiosk THOUGHT_ADMIN_PASS=ipad node server.js &
 sleep 30
-chromium-browser --kiosk --incognito http://localhost:8000/app &
+chromium-browser --kiosk --incognito http://localhost/app &
 xset -dpms # disable DPMS (Energy Star) features.
 xset s off # disable screen saver
 xset s noblank # don't blank the video device

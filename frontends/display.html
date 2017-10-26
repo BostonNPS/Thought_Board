@@ -188,10 +188,11 @@ input[type="text"] {
     position: fixed;
     z-index: 1001;
     display: block;
-    /*max-height: 15%;*/
+	min-height: 10%;
+	padding-top:2%;
     width: 100%;
     text-align: center;
-    /*top: 0;*/
+    bottom: 0;
     left: 0;
     background: rgba(0,0,0,0.75);
     box-shadow: 0px 0px 10px 2px rgba(0,0,0,0.75);
@@ -202,23 +203,12 @@ input[type="text"] {
     overflow:hidden;
     
 }
-@media screen and (max-width: 1024px) {
-#question {
-top:0;
-}
-}
-
-@media screen and (min-width: 1025px) {
-#question {
-bottom:0;
-}
-}
 #mediaBox {
 	height: 100%;
     width: 100%;
     position: absolute;
-    top: 0;
 	left:0;
+	top:0;
     text-align: center;
     z-index:0;
 }
@@ -226,6 +216,25 @@ bottom:0;
 	max-height:100%;
 	max-width:100%;
 }
+/*
+@media screen and (max-width: 1024px) {
+#question {
+top:0;
+}
+#mediaBox {
+bottom:0;
+}
+}
+
+@media screen and (min-width: 1025px) {
+#question {
+bottom:0;
+}
+#mediaBox {
+top:0;
+}
+}
+*/
 .button {
 	
 		display: inline-block;
@@ -277,21 +286,81 @@ bottom:0;
 	color: white;
 	text-shadow: 0 1px rgba(0, 0, 0, 0.1);
 }
+canvas {
+margin-left:auto;
+margin-right:auto;
+}
+.legendColor {
+display:inline-block;
+height:1em;
+width:2em;
+margin:.5em;
+vertical-align:middle;
+border:2px solid white;
+}
+.legendEntry {
+display:inline-block;
+padding-left:1em;
+padding-right:1em;
+margin-top:1em;
+border-right:2px solid black;
+}
+.legendEntry:last-child {
+border:none;
+}
 </style>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/lib/jquery.js"></script>
 <script src="/twemoji/twemoji.min.js"></script>
+<script src="/lib/Chart.min.js"></script>
 </head>
 
 <body style="overflow:hidden;height:100%;width:100%;margin:0;font-family:sans-serif;background:rgb(179, 85, 63)">
 <div id="mediaBox"></div>
 <span id="question"></span>
-<span id="dialog"><form><input type="text" id="response"></input><span class="btnrow">Type your own response to the question and post it to the wall by clicking "Submit".<br>Please promote discussion by keeping responses appropriate for all audiences.</span><span class="btnrow"><input id="submit" type="submit" class="button blue" style="float:right;"><button id="cancel" style="float:right;margin-right:1em;" onclick='hideDialog()' class="button red">Cancel</button></span></form></span>
 <span id="body"></span>
-<span id="plus" class="hint" onclick="showDialog()">+</span>
 <script>
+
+//this class handles the data of a chart as well as managing the incrementing votes in each category.
+function Votes() {
+
+	this.data = {labels: [], datasets:[{label: "# of votes",data:[],backgroundColor:[]}]};
+	//this.totals = [];
+	//this.labels = [];
+	//this.color = [];
+	this.categories = 0;
+	this.addCategory = function(label,data,color) {
+		this.data.labels.push(label);
+		this.data.datasets[0].data.push(data);
+		this.data.datasets[0].backgroundColor.push(color);
+		this.categories++;
+	};
+	
+	this.addVote = function(voteSelector) {
+		this.data.datasets[0].data[voteSelector]++
+	};
+	this.getVote = function(voteSelector) {
+		return this.data.datasets[0].data[voteSelector];
+	};
+	this.getLabel = function(voteSelector) {
+		return this.data.labels[voteSelector];
+	};
+	this.getColor = function(voteSelector) {
+		return this.data.datasets[0].backgroundColor[voteSelector];
+	};
+	this.getLegendHTML = function(divID) {
+		var htmlStr = ''
+		for(var x = 0; x < this.categories; x++)
+		{
+			htmlStr += "<span class='legendEntry'><span class='legendColor' style='background-color:"+this.getColor(x)+";'></span>"+this.getLabel(x)+": " + this.getVote(x) + "</span>"
+		}
+		return htmlStr;
+	};
+}
+
 var socket = io();
 var previewMode = false;
+var votesObj = "";
 if(window.location.search.substring(1))
 {
 	params = window.location.search.substring(1).split("&")
@@ -319,19 +388,7 @@ if(previewMode)
 				{
 					if(data[x]._id == previewMode)
 					{
-						$("#question").html(data[x].question)
-						if(data[x].image && /image/.test(data[x].image.mimetype))
-						{
-							$("#mediaBox").html("<img src='" + data[x].image.path + "'>")
-						}
-						if(data[x].image && /video/.test(data[x].image.mimetype))
-						{
-							$("#mediaBox").html("<video autoplay loop><source src='" + data[x].image.path + "' type='" + data[x].image.mimetype + "'>There is a problem with the video.</video>")
-						}
-						if(data[x].bgcolor)
-						{
-							$('body').css("background",data[x].bgcolor);
-						}
+						drawScreen(data[x])
 					}
 				}
 			}
@@ -340,13 +397,122 @@ if(previewMode)
 }
 else
 {
-socket.on('data', function(json){
+	socket.on('data', function(json){
+		var query = JSON.parse(json);
+		drawScreen(query);
+	});
+
+	socket.on('animateUpdate', function(json){
+		divs = document.getElementsByClassName("thought");
+			var query = JSON.parse(json)
+			var thoughts = query.thoughts
+		for(var x=0;x<thoughts.length;x++)
+		{
+			if(thoughts[x].message)
+			{
+			document.getElementById(thoughts[x]._id).style.left = thoughts[x].x + "%"
+			document.getElementById(thoughts[x]._id).style.top = thoughts[x].y + "%"
+			}
+		}
+	});
+	socket.on('newThought',function(json){
+		var newThought = JSON.parse(json);
+		if(newThought.message)
+		{
+			var div = document.createElement("div");
+			if(newThought.vote) div.innerHTML = "<div class='outerThought'><div class='innerThought'><span class='legendColor' style='background-color:"+votesObj.getColor(newThought.vote)+";'></span>" + twemoji.parse(newThought.message) + "</div></div>";
+			else div.innerHTML = "<div class='outerThought'><div class='innerThought'>" + twemoji.parse(newThought.message) + "</div></div>";
+			div.style.left = newThought.x + "%";
+			div.style.top = newThought.y + "%";
+			div.id = newThought._id;
+			div.className = "thought popIn";
+			div.addEventListener("click", function(e){highlight(e)})
+			document.getElementById("body").appendChild(div);
+		}
+		//if a vote, recalculate chart
+		if(newThought.vote)
+		{
+			votesObj.addVote(newThought.vote);
+			//myChart.data = votesObj.getData();
+			//myChart.data.datasets[0].data[newThought.vote]++;
+			myChart.update();
+			$("#chartLegend").html(votesObj.getLegendHTML());
+		}
+	});
+	socket.on('maximizeThought',function(id){
+		var div = document.getElementById(id);
+		div.className = "thought maximizedThought"
+	});
+	socket.on('minimizeThought',function(id){
+		var div = document.getElementById(id);
+		div.className = "thought minimizedThought"
+	});
+
+	function highlight(e)
+	{
+		socket.emit("highlight",{id:e.target.id})
+	}
+}
+
+function drawScreen(query)
+{
 	document.getElementById("body").innerHTML = '';
-	var query = JSON.parse(json)
 	document.getElementById("question").innerHTML = query.question;
 	if(query.image)
 	{
-		$("#mediaBox").html("<img src='" + query.image.path + "'>")
+		$("#mediaBox").html("<img src='" + query.image.path + "' style='max-height:"+ (window.innerHeight - document.getElementById("question").offsetHeight) +"px'>")
+	}
+	else
+	{
+		$("#mediaBox").empty();
+	}
+	if(query.chart)
+	{
+	
+		//total tally object
+		votesObj = new Votes();
+		
+		//expand arrays of vote totals (zeros for now) and the labels inside votesObj
+		for(var z = 0;z < query.voteOptions.length;z++)
+		{
+			votesObj.addCategory(query.voteOptions[z].name, 0, query.voteOptions[z].color)
+		}
+		
+		//tally up votes by comparing individual votes to the options
+		for(v in query.thoughts)
+		{
+			for(var z = 0; z < query.voteOptions.length; z++)
+			{
+				if(query.thoughts[v].vote == z)
+				{
+					votesObj.addVote(z);
+				}
+			}
+		}
+		var options = {responsive:false};
+		if(query.charttype == "bar")
+		{
+			options.scales = {
+				yAxes: [{
+					ticks: {
+						beginAtZero:true
+					}
+				}]
+			}
+		}
+		options.legend = {
+			display:false
+		}
+		$("#mediaBox").html('<div id="chartLegend"></div>');
+		$("#chartLegend").html(votesObj.getLegendHTML());
+		//first draw canvas and make a reference to it with 2d context
+		$("#mediaBox").prepend('<canvas id="chartData" height=' + (window.innerHeight - document.getElementById("question").offsetHeight - document.getElementById("chartLegend").offsetHeight - 50) + ' width=800></canvas>')
+		var ctx = document.getElementById("chartData").getContext('2d');
+		myChart = new Chart(ctx, {
+			type: query.charttype,
+			data: votesObj.data,
+			options: options
+		});
 	}
 	if(query.bgcolor)
 	{
@@ -355,86 +521,36 @@ socket.on('data', function(json){
 	var thoughts = query.thoughts
 	for(var x=0;x<thoughts.length;x++)
 	{
-		var div = document.createElement("div");
-		//div.innerHTML = twemoji.parse(thoughts[x].message);
-		div.innerHTML = "<div class='outerThought'><div class='innerThought'>" + twemoji.parse(thoughts[x].message) + "</div></div>";
-		div.style.left = thoughts[x].x + "%";
-		div.style.top = thoughts[x].y + "%";
-		div.id = thoughts[x]._id;
-		div.className = "thought";
-		if(thoughts[x].highlighted == "true")
+		console.log(thoughts[x].message);
+		if(thoughts[x].message)
 		{
-			div.className += " maximizedThought"
+			var div = document.createElement("div");
+			if(thoughts[x].vote) div.innerHTML = "<div class='outerThought'><div class='innerThought'><span class='legendColor' style='background-color:"+votesObj.getColor(thoughts[x].vote)+";'></span>" + twemoji.parse(thoughts[x].message) + "</div></div>";
+			else div.innerHTML = "<div class='outerThought'><div class='innerThought'>" + twemoji.parse(thoughts[x].message) + "</div></div>";
+			if(previewMode)
+			{
+				div.style.left = Math.random() * 100 + "%";
+				div.style.top = Math.random() * 100 + "%";
+			}
+			else
+			{
+				div.style.left = thoughts[x].x + "%";
+				div.style.top = thoughts[x].y + "%";
+			}
+			div.id = thoughts[x]._id;
+			div.className = "thought";
+			if(thoughts[x].highlighted == "true")
+			{
+				div.className += " maximizedThought"
+			}
+			div.addEventListener("click", function(e){highlight(e)})
+			document.getElementById("body").appendChild(div);
 		}
-		div.addEventListener("click", function(e){highlight(e)})
-		document.getElementById("body").appendChild(div);
 	}
-});
-socket.on('animateUpdate', function(json){
-	divs = document.getElementsByClassName("thought");
-		var query = JSON.parse(json)
-		var thoughts = query.thoughts
-	for(var x=0;x<thoughts.length;x++)
-	{
-		divs[x].style.left = thoughts[x].x + "%"
-		divs[x].style.top = thoughts[x].y + "%"
-	}
-});
-socket.on('newThought',function(json){
-	var newThought = JSON.parse(json);
-	var div = document.createElement("div");
-	div.innerHTML = twemoji.parse(newThought.message);
-	div.style.left = newThought.x + "%";
-	div.style.top = newThought.y + "%";
-	div.id = newThought._id;
-	div.className = "thought popIn";
-	div.addEventListener("click", function(e){highlight(e)})
-	document.getElementById("body").appendChild(div);
-});
-socket.on('maximizeThought',function(id){
-	var div = document.getElementById(id);
-	div.className = "thought maximizedThought"
-});
-socket.on('minimizeThought',function(id){
-	var div = document.getElementById(id);
-	div.className = "thought minimizedThought"
-});
-
-function highlight(e)
+}
+function drawLegend(vote)
 {
-	socket.emit("highlight",{id:e.target.id})
-}
-
-function showDialog(){
-	document.getElementById("plus").style.animationName = "hidePlus";
-	document.getElementById("dialog").style.animationName = "showDialog";
-	setTimeout(function(){document.getElementById("response").focus()},1000)
-}
-function hideDialog() {
-	document.getElementById("response").blur(); //hide ios keyboard
-	window.scrollTo(0,0);
-	document.getElementById("plus").style.animationName = "showPlus";
-	document.getElementById("dialog").style.animationName = "hideDialog";
-	document.getElementById("response").value = "";
-}
-function submit() {
-	document.getElementById("response").blur(); //hide ios keyboard when user hits "go" in keyboard
-	if(document.getElementById("response").value)
-	{
-		socket.emit("submit",{message:document.getElementById("response").value})
-		hideDialog();
-	}
-}
-
-document.getElementsByTagName("form")[0].addEventListener("submit", function (e) {e.preventDefault();submit()});
-document.getElementById("cancel").addEventListener("touchstart", function (e) {
-	e.preventDefault();
-	hideDialog();
-});
-document.getElementById("submit").addEventListener("touchstart", function (e) {
-	e.preventDefault();
-	submit();
-});
+	
 }
 </script>
 </body>

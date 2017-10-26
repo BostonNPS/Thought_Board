@@ -135,8 +135,7 @@
 	position:fixed;
 	z-index:1001;
 	display:block;
-	height:25%;
-	width:75%;
+	width:90%;
 	top:10%;
 	margin-left:auto;
 	margin-right:auto;
@@ -347,6 +346,14 @@ margin:.5em;
 	display:inline-block;
 	cursor:pointer;
 }
+.legendColor {
+display:inline-block;
+height:1em;
+width:2em;
+margin:.5em;
+vertical-align:middle;
+border:2px solid white;
+}
 </style>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/lib/jquery.js"></script>
@@ -356,263 +363,366 @@ margin:.5em;
 <body style="height:100%;width:100%;margin:0;font-family:sans-serif;background:rgb(179, 85, 63)">
 <div id="question"></div>
 <div id="fullscreenMedia"></div>
-<span id="dialog"><form><input type="text" id="response"></input><span class="btnrow">Type your own response to the question and post it to the wall by clicking "Submit".<br>Please promote discussion by keeping responses appropriate for all audiences.</span><span class="btnrow"><input id="submit" type="submit" class="button blue" style="float:right;"><button id="cancel" style="float:right;margin-right:1em;" onclick='hideDialog()' class="button red">Cancel</button></span></form></span>
+<span id="dialog"><span class="btnrow" id="chartPoll"></span><span id="comment"><span class="btnrow"><input type="text" id="response"></input></span><span class="btnrow">Type your own response to the question and post it to the wall by clicking "Submit".<br>Please promote discussion by keeping responses appropriate for all audiences.</span></span><span class="btnrow"><button id="submit" class="button blue" style="float:right;">Submit</button><button id="cancel" style="float:right;margin-right:1em;" class="button red">Cancel</button></span></span>
 <span id="body"></span>
 <span id="plus" class="hint" onclick="showDialog()">+</span>
 <div id="admin_edit"><span class="ui-icon ui-icon-pencil"></span>
 <script>
-var adminOn = false;
-  var socket = io();
-var previewMode = false;
-$("#fullscreenMedia").on("click",function(e){
-	$("#fullscreenMedia").removeClass("fullscreenMediaFadeIn");
-	$("#fullscreenMedia").addClass("fullscreenMediaFadeOut");
-	
-})
-function attachMedia(obj){
-	if(obj.video)
-	{
-		$("#question").append("<div id='mediaBox'><img src=" + obj.image.path + "><div class='zoom-icon'></div><div>");
-			$("#fullscreenMedia").html("<video controls><source src='" + obj.video.path + "." + obj.video.mimetype.split("/")[1] + "' type='" + obj.video.mimetype + "'>There is a problem with the video.</video>");
-			$("#mediaBox").on("click",function(e){
-				$("#fullscreenMedia").addClass("fullscreenMediaFadeIn");
-				$("#fullscreenMedia").removeClass("fullscreenMediaFadeOut");
-				$("video")[0].play()
-			});
-	}
-	else
-	{
-		$("#question").append("<div id='mediaBox'><img src=" + obj.image.path + "><div class='zoom-icon'></div><div>");
-			$("#fullscreenMedia").html("<img src=" + obj.image.path + ">");
-			$("#mediaBox").on("click",function(e){
-				$("#fullscreenMedia").addClass("fullscreenMediaFadeIn");
-				$("#fullscreenMedia").removeClass("fullscreenMediaFadeOut");
-			});
-	}
-}
-if(window.location.search.substring(1))
-{
-	params = window.location.search.substring(1).split("&")
-	for(var x =0; x < params.length; x++)
-	{
-		var pair = params[x]
-		if(pair.split("=")[0] == "bg")
-		{
-			$('body').css("background",pair.split("=")[1]);
-		}
-		if(pair.split("=")[0] == "preview")
-		{
-			previewMode = pair.split("=")[1];
-		}
-		
-	}
-}
-if(previewMode)
-{
-	$.ajax({
-		dataType:"json",
-		url:"/admin/data",
-		success: function(data){
-				for(x in data)
-				{
-					if(data[x]._id == previewMode)
-					{
-						$("#question").html(data[x].question)
-						if(data[x].image || data[x].video)
-						{
-							attachMedia(data[x]);
-						}
-						if(data[x].bgcolor)
-						{
-							$('body').css("background",data[x].bgcolor);
-						}
-					}
-				}
-			}
-		
-		});
-}
-else{
- socket.on('data', function(json){
-	$(".thought").remove()
+//---------------------
+//GLOBAL VARIABLES
+//--------------------
+	var adminOn = false;
+	var socket = io();
+	var previewMode = false;
+	var curQA = '';
+	var passcode = '1974';
+	var adminTimeoutDefault = 20 //in seconds
+	var scrollUpTimerDefault = 60 //in seconds
 
-	//$.getJSON('/data',function(json){
-		q = JSON.parse(json);
-		console.log(JSON.stringify(q.suppressed));
-		$("#question").empty();
-		if(q.bgcolor)
+//-------------------
+//EVENT LISTENERS
+//-------------------
+
+	//Handle when user taps a fullscreened piece of media...make it fade out.
+	$("#fullscreenMedia").on("click",function(e){
+		$("#fullscreenMedia").removeClass("fullscreenMediaFadeIn");
+		$("#fullscreenMedia").addClass("fullscreenMediaFadeOut");
+		
+	});
+
+
+	//Handle the "submit" button click/tap
+	$("#submit").on("click",function(e){
+		submit();
+	});
+	
+	//Also treat hitting enter in the text input as a submit.
+	$("#response").bind("keypress", function(e){
+		if(e.keyCode == 13)
 		{
-			$('body').css("background",q.bgcolor);
+			submit();
+		}
+	});
+
+	//Handle the "cancel" button click/tap
+	$("#cancel").on("click",function(e){
+		hideDialog();
+	});
+
+	//Handle the "admin" button click/tap represented with a pencil icon at top right of screen.
+	$("#admin_edit").on("click",function(e){
+		if(adminOn)
+		{
+			disableAdmin();
 		}
 		else
 		{
-			$('body').css("background","rgb(179, 85, 63)");
+			var pass = prompt("");
+			enableAdmin(pass)
 		}
-		if(q.image || q.video)
-		{
-			attachMedia(q);
-		}
-		 $("#question").append(q.question);
-		for(var x = 0; x < q.thoughts.length; x++)
-		{
-			var adminClass = "deleteIconInactive "
-			if(adminOn)
-			{
-				adminClass = "deleteIconActive "
-			}
-			$("<div class='thought' onclick='highlight(&quot;" + q.thoughts[x]._id + "&quot;)' id='" + q.thoughts[x]._id + "'><span class='admin " + adminClass + "ui-icon ui-icon-close'></span><div class='outerThought'><div class='innerThought'>" + twemoji.parse(q.thoughts[x].message) + "</div></div></div>").insertAfter("#question");
-		}
-	//})
+	});
+	
+	//When user scrolls, reset timer so it scrolls back up after the set amount of idle time.
+	$(document).scroll(function(){
+		scrollUpTimer = scrollUpTimerDefault;
+	})
+	
+//----------------------
+//UI helper functions
+//----------------------
 
- //location.reload()
- 
- });
-socket.on('newThought',function(json){
-	var newThought = JSON.parse(json);
-			var adminClass = "deleteIconInactive "
-			if(adminOn)
-			{
-				adminClass = "deleteIconActive "
-			}
-	$("<div class='thought popIn' onclick='highlight(&quot;" + newThought._id + "&quot;)' id='" + newThought._id + "'><span class='admin " + adminClass + "ui-icon ui-icon-close'></span><div class='outerThought'><div class='innerThought'>" + twemoji.parse(newThought.message) + "</div></div></div>").insertAfter("#question");
-	//$('html, body').animate({scrollTop: document.documentElement.scrollHeight}, 2000,function(){})
-});
-socket.on('maximizeThought',function(id){
-	var div = document.getElementById(id);
-	div.className = "thought maximizedThought"
-});
-socket.on('minimizeThought',function(id){
-	var div = document.getElementById(id);
-	div.className = "thought minimizedThought"
-});
-
-function highlight(id)
-{
-	console.log("Click");
-	if(adminOn)
-	{
-		var url = "/suppress/" + id;
-		console.log(url)
-		$.ajax({type:"GET", url:url,success:function(res){console.log(res)}});
-		adminTimeout = adminTimeoutDefault;
+	//Displays user input dialog
+	function showDialog(){
+		document.getElementById("plus").style.animationName = "hidePlus";
+		document.getElementById("dialog").style.animationName = "showDialog";
+		setTimeout(function(){document.getElementById("response").focus()},1000)
 	}
+	
+	//Hides user input dialog and clears out data.
+	function hideDialog() {
+		document.getElementById("response").blur(); //hide ios keyboard
+		window.scrollTo(0,0);
+		document.getElementById("plus").style.animationName = "showPlus";
+		document.getElementById("dialog").style.animationName = "hideDialog";
+		$("#response").val("");
+		$("input[name=vote]").prop("checked",false);
+	}
+
+	//check that input is correct, emit response with socket.io
+	function submit() {
+		if(!previewMode)//when in preview mode do not submit.
+		{
+			$("#response")[0].blur(); //hide ios keyboard when user hits "go" in keyboard
+			if(!curQA.voteOptions && $("#response").val())//if no vote/ballot and there is something in the comment/message space...
+			{
+				socket.emit("submit",{message:$("#response").val()})
+				hideDialog();
+			}
+			else
+			{
+				if(curQA.voteOptions && ($("input[name=vote]:checked").val() !== undefined))//there is a ballot and there is a valid vote.
+				{
+					if($("#response").val())//and there is a comment
+					{
+						socket.emit("submit",{message:$("#response").val(),vote:$("input[name=vote]:checked").val()})
+					}
+					else//or no comment or maybe it was disabled...then don't attach message key/value
+					{
+						socket.emit("submit",{vote:$("input[name=vote]:checked").val()})
+					}
+					hideDialog();
+				}
+			}
+		}
+	}
+	
+	//handle turning on admin mode.
+	function enableAdmin(pass){
+		if(pass === passcode)
+		{
+			adminOn = true
+			$(".admin").addClass('deleteIconActive')
+			$(".admin").removeClass('deleteIconInactive')
+			adminTimeout = adminTimeoutDefault;
+		}
+	}
+	
+	//handle turning admin mode off.
+	function disableAdmin(){
+			$(".admin").removeClass('deleteIconActive');
+			$(".admin").addClass('deleteIconInactive');
+			adminOn=false;
+	}
+
+
+//----------------------
+//TIMER LOOP
+//----------------------
+	//handle all timed interval functionality. Every second decrement the timers. when timers hit respective zeroes, do stuff.
+	//note that the timers aren't reset until appropriate action sets them to default values. At load time the timers themselves start at -1
+	//to keep things from firing for no reason.
+	var adminTimeout = -1;
+	var scrollUpTimer = -1;
+	setInterval(function(){
+		adminTimeout--;
+		scrollUpTimer--;
+		if(adminTimeout == 0)
+		{
+			disableAdmin();
+		}
+		if(scrollUpTimer == 0)
+		{
+			$('html, body').animate({scrollTop: 0},2000);
+		}
+	},1000)
+
+
+
+
+//----------------------
+//Rendering Question/Answer data helper functions
+//----------------------
+	
+	function attachMedia(obj){
+		if(obj.video)
+		{
+			$("#question").append("<div id='mediaBox'><img src=" + obj.image.path + "><div class='zoom-icon'></div><div>");
+				$("#fullscreenMedia").html("<video controls><source src='" + obj.video.path + "." + obj.video.mimetype.split("/")[1] + "' type='" + obj.video.mimetype + "'>There is a problem with the video.</video>");
+				$("#mediaBox").on("click",function(e){
+					$("#fullscreenMedia").addClass("fullscreenMediaFadeIn");
+					$("#fullscreenMedia").removeClass("fullscreenMediaFadeOut");
+					$("video")[0].play()
+				});
+		}
+		else
+		{
+			$("#question").append("<div id='mediaBox'><img src=" + obj.image.path + "><div class='zoom-icon'></div><div>");
+				$("#fullscreenMedia").html("<img src=" + obj.image.path + ">");
+				$("#mediaBox").on("click",function(e){
+					$("#fullscreenMedia").addClass("fullscreenMediaFadeIn");
+					$("#fullscreenMedia").removeClass("fullscreenMediaFadeOut");
+				});
+		}
+		}
+	function attachBallot(obj){
+		$("#chartPoll").empty();
+		for(var x = 0; x < obj.voteOptions.length; x++)
+		{
+			$("#chartPoll").append("<input type='radio' name='vote' id='radio" + x + "' value='" + x + "'><label for='radio" + x + "'>" + obj.voteOptions[x].name + "</label><br>");
+		}
+	}
+
+
+//----------------------------------
+//LOAD TIME ACTIONS
+//THIS IS WHERE ALL THE ACTION HAPPENS
+//-----------------------------------
+
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	//FIRST Check for URL parameters
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	if(window.location.search.substring(1))
+	{
+		params = window.location.search.substring(1).split("&")
+		for(var x =0; x < params.length; x++)
+		{
+			var pair = params[x]
+			if(pair.split("=")[0] == "bg")
+			{
+				$('body').css("background",pair.split("=")[1]);
+			}
+			if(pair.split("=")[0] == "preview")
+			{
+				previewMode = pair.split("=")[1];
+			}
+			
+		}
+	}
+	
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	//IF parameter given for previewing, load up using AJAX all the Questions/Answers and insert the
+	//stuff associated with the correct ObjectID requested.
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	if(previewMode)
+	{
+		$.ajax({
+			dataType:"json",
+			url:"/admin/data",
+			success: function(data){
+					for(x in data)
+					{
+						if(data[x]._id == previewMode)
+						{
+							$("#question").html(data[x].question)
+							if(data[x].image || data[x].video)
+							{
+								attachMedia(data[x]);
+							}
+							if(data[x].voteOptions)
+							{
+								attachBallot(data[x]);
+							}
+							if(data[x].bgcolor)
+							{
+								$('body').css("background",data[x].bgcolor);
+							}
+						}
+					}
+				}
+			
+			});
+	}
+	
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	//OTHERWISE we will rely on the Socket.io functionality to provide data
+	//if that is the case, set up all the socket.io listeners.
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	else
 	{
-		socket.emit("highlight",{id:id})
+		//On socket emit of 'data' results in a redraw of everything.
+		//This happens on a new socket connection or when a new Question is loaded up.
+		socket.on('data', function(json){
+			//clear out any old stuff
+			$(".thought").remove();
+			$("#comment").show();
+			$("#chartPoll").empty();
+			$("#question").empty();
+			
+			//assign global for convinience of the current QA object.
+			curQA = JSON.parse(json);
+			
+			//draw based on data from QA object
+			if(curQA.bgcolor)
+			{
+				$('body').css("background",curQA.bgcolor);
+			}
+			else
+			{
+				$('body').css("background","rgb(179, 85, 63)");
+			}
+			if(curQA.image || curQA.video)
+			{
+				attachMedia(curQA);
+			}
+			if(curQA.voteOptions)
+			{
+				attachBallot(curQA);
+			}
+			if(curQA.commentsDisabled)
+			{
+				$("#comment").hide();
+			}
+			$("#question").append(curQA.question);
+			
+			//now render and insert all the thoughts/comments already in existence.
+			//skip those without message content (votes but no comments)
+			for(var x = 0; x < curQA.thoughts.length; x++)
+			{
+				if(curQA.thoughts[x].message)
+				{
+				var adminClass = "deleteIconInactive "
+				if(adminOn)
+				{
+					adminClass = "deleteIconActive "
+				}
+				if(curQA.thoughts[x].vote) $("<div class='thought' onclick='highlight(&quot;" + curQA.thoughts[x]._id + "&quot;)' id='" + curQA.thoughts[x]._id + "'><span class='admin " + adminClass + "ui-icon ui-icon-close'></span><div class='outerThought'><div class='innerThought'><span class='legendColor' style='background-color:"+curQA.voteOptions[curQA.thoughts[x].vote].color+";'></span>" + twemoji.parse(curQA.thoughts[x].message) + "</div></div></div>").insertAfter("#question");
+				else $("<div class='thought' onclick='highlight(&quot;" + curQA.thoughts[x]._id + "&quot;)' id='" + curQA.thoughts[x]._id + "'><span class='admin " + adminClass + "ui-icon ui-icon-close'></span><div class='outerThought'><div class='innerThought'>" + twemoji.parse(curQA.thoughts[x].message) + "</div></div></div>").insertAfter("#question");
+				}
+			}
+		});
+		
+		//On 'newThought' draw in the new comment.
+		socket.on('newThought',function(json){
+			var newThought = JSON.parse(json);
+			if(newThought.message)
+			{
+				var adminClass = "deleteIconInactive "
+				if(adminOn)
+				{
+					adminClass = "deleteIconActive "
+				}
+				if(newThought.vote) $("<div class='thought popIn' onclick='highlight(&quot;" + newThought._id + "&quot;)' id='" + newThought._id + "'><span class='admin " + adminClass + "ui-icon ui-icon-close'></span><div class='outerThought'><div class='innerThought'><span class='legendColor' style='background-color:"+curQA.voteOptions[newThought.vote].color+";'></span>" + twemoji.parse(newThought.message) + "</div></div></div>").insertAfter("#question");
+				else $("<div class='thought popIn' onclick='highlight(&quot;" + newThought._id + "&quot;)' id='" + newThought._id + "'><span class='admin " + adminClass + "ui-icon ui-icon-close'></span><div class='outerThought'><div class='innerThought'>" + twemoji.parse(newThought.message) + "</div></div></div>").insertAfter("#question");
+			}
+		});
+		socket.on('maximizeThought',function(id){
+			var div = document.getElementById(id);
+			div.className = "thought maximizedThought"
+		});
+		socket.on('minimizeThought',function(id){
+			var div = document.getElementById(id);
+			div.className = "thought minimizedThought"
+		});
+
+		function highlight(id)
+		{
+			if(adminOn)
+			{
+				var url = "/suppress/" + id;
+				console.log(url)
+				$.ajax({type:"GET", url:url,success:function(res){console.log(res)}});
+				adminTimeout = adminTimeoutDefault;
+			}
+			else
+			{
+				socket.emit("highlight",{id:id})
+			}
+		}
+		function remove(id)
+		{
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+				   // Typical action to be performed when the document is ready:
+				   alert(xhttp.responseText);
+				}
+			};
+			xhttp.open("GET", "/suppress/" + id, true);
+			xhttp.send();
+			//reset timer since there was a valid admin action.
+			adminTimeout = adminTimeoutDefault;
+		}
 	}
-}
-}
-function showDialog(){
-	document.getElementById("plus").style.animationName = "hidePlus";
-	document.getElementById("dialog").style.animationName = "showDialog";
-	setTimeout(function(){document.getElementById("response").focus()},1000)
-}
-function hideDialog() {
-	document.getElementById("response").blur(); //hide ios keyboard
-	window.scrollTo(0,0);
-	document.getElementById("plus").style.animationName = "showPlus";
-	document.getElementById("dialog").style.animationName = "hideDialog";
-	document.getElementById("response").value = "";
-}
-function submit() {
-	document.getElementById("response").blur(); //hide ios keyboard when user hits "go" in keyboard
-	if(document.getElementById("response").value)
-	{
-		socket.emit("submit",{message:document.getElementById("response").value})
-		hideDialog();
-	}
-}
-
-document.getElementsByTagName("form")[0].addEventListener("submit", function (e) {e.preventDefault();submit()});
-document.getElementById("cancel").addEventListener("touchstart", function (e) {
-	e.preventDefault();
-	hideDialog();
-});
-document.getElementById("submit").addEventListener("touchstart", function (e) {
-	e.preventDefault();
-	submit();
-});
-
-document.getElementById("admin_edit").addEventListener("click",function(e){
-	if(adminOn)
-	{
-		disableAdmin();
-	}
-	else
-	{
-		var pass = prompt("");
-		enableAdmin(pass)
-	}
-});
-
-function enableAdmin(passcode){
-	if(passcode === "1974")
-	{
-		adminOn = true
-		$(".admin").addClass('deleteIconActive')
-		$(".admin").removeClass('deleteIconInactive')
-		adminTimeout = adminTimeoutDefault;
-	}
-}
-function disableAdmin(){
-		$(".admin").removeClass('deleteIconActive');
-		$(".admin").addClass('deleteIconInactive');
-		adminOn=false;
-}
-function remove(id)
-{
-/*
-	$.ajax({
-	type:'GET',
-	url: '/suppress/' + id,
-	success: function(data){
-		alert(data)
-		},
-	error: function(xhr,status,error){
-	alert(error)
-	}
-	})*/
-var xhttp = new XMLHttpRequest();
-xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-       // Typical action to be performed when the document is ready:
-       alert(xhttp.responseText);
-    }
-};
-xhttp.open("GET", "/suppress/" + id, true);
-xhttp.send();
-	adminTimeout = adminTimeoutDefault;
-}
-
-var adminTimeoutDefault = 20
-var adminTimeout = 20
-
-setInterval(function(){
-	adminTimeout--;
-	if(adminTimeout == 0)
-	{
-		disableAdmin()
-	}
-},1000)
-
-var scrollUpTimerDefault = 60
-var scrollUpTimer = 60
-
-
-//autoscroll to top after aminute of scrolling down
-setInterval(function(){
-	scrollUpTimer--;
-	if(scrollUpTimer == 0)
-	{
-		$('html, body').animate({scrollTop: 0},2000);
-		//scrollUpTimer = scrollUpTimerDefault
-	}
-	//console.log(scrollUpTimer)
-},1000)
-
-$(document).scroll(function(){
-	scrollUpTimer = scrollUpTimerDefault;
-})
 
 </script>
 </body>

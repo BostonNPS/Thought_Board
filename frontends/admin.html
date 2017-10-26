@@ -6,8 +6,10 @@
 <script src="/lib/jquery.js"></script>
 <script src="/lib/jquery-ui.min.js"></script>
 <script src="/twemoji/twemoji.min.js"></script>
+<script src="/lib/spectrum.js"></script>
 <link rel="stylesheet" type="text/css" href="/lib/gstatic-add-ons1.css">
 <link rel="stylesheet" type="text/css" href="/lib/jquery-ui.min.css">
+<link rel="stylesheet" type="text/css" href="/lib/spectrum.css">
 
 <style>
 table {
@@ -144,7 +146,18 @@ transform: translate(-50%, -50%)
 	<div id="inactiveQATab"></div>
 	<div id="newQA">
 	Question to Preview/Edit: <select id="previewSelect" onchange="preview(this.value)"></select>
-	<form id="subform" enctype='multipart/form-data'>Question (may include valid HTML/CSS):<textarea style="width:100%;height:100px" name="question"></textarea><br>Background Color: <input type="color" name="bgcolor" value="#b3553f"><br><span id="imageLabel">Media (Image or video placeholder thumbnail): </span><input type="file" name="image" accept="image/*"><br><span id="videoLabel">Media (Video): </span><input type="file" name="video"accept="video/*"><span class="btnrow"><input type="submit" class="button blue" style="float:right;"></span></form>
+	<form id="subform" enctype='multipart/form-data'>
+		Question (may include valid HTML/CSS):<textarea style="width:100%;height:100px" name="question"></textarea>
+		<br><input id="ballotEnabled" type="checkbox"><label for="ballotEnabled">Ballot/Multiple choice:</label>
+			<br><label class="ballot" for="commentsDisabled">Disabled commenting with a vote: </label><input id="commentsDisabled" type="checkbox" class="ballot" name="commentsDisabled">
+			<br><label class="ballot" for="chartSelect">Chart type: </label><select name="chart" class="ballot" id="chartSelect"><option value="">(No Chart)</option><option value="pie">Pie</option><option value="bar">Bar</option></select>
+			<br><input type="button" id="addBallotOption" value="Add Option to List" class="ballot">
+			<ol id="ballotOptions" class="ballot">
+			</ol>
+		<br>Background Color: <input type="color" name="bgcolor" value="#b3553f">
+		<br><span id="imageLabel">Media (Image or video placeholder thumbnail): </span><input type="file" name="image" accept="image/*">
+		<br><span id="videoLabel">Media (Video): </span><input type="file" name="video"accept="video/*"><span class="btnrow">
+		<input type="submit" class="button blue" style="float:right;"></span></form>
 	<h4>Display screen preview (1080x1920 widescreen):</h4>
 	<div class="iframeWrapper"><iframe id="displayPreviewFrame"></iframe></div>
 	<h4>Kiosk screen preview (768x1024 iPad landscape):</h4>
@@ -153,7 +166,26 @@ transform: translate(-50%, -50%)
 	</div>
 	<div id="loader"><img src="/lib/images/gif-load.gif"><h2 id="notifier">Uploading media...<br><br><progress></progress></h2></div>
 <script>
-var dataGlobal = ''; //global set by ajax callbacks.
+
+//---------------------
+//GLOBAL VARIABLES
+//--------------------
+	var dataGlobal = ''; //global set by ajax callbacks.
+	var ballotOptionHTML = function(num,text,color){
+		if(typeof color === "undefined")
+		{
+			color = "#b3553f";
+		}
+		if(typeof text === "undefined")
+		{
+			text = "";
+		}
+		return '<li id="ballotOption_' + num + '"><input type="text" value="' + text + '" name="ballotOption"><input type="color" name="ballotOptionColor" value="' + color + '"><input type="button" value="Delete Option" onclick="deleteOption(' + num + ')"></li>';
+	}
+//-------------------
+//EVENT LISTENERS
+//-------------------
+	//handle form submission when editing/creating a question.
 	$("#subform").submit(function(e){
 		e.preventDefault();
 		if($("textarea[name=question]").val() != "")
@@ -193,10 +225,49 @@ var dataGlobal = ''; //global set by ajax callbacks.
 			alert("Question cannot be empty.")
 		}
 	});
+	
+	$("#ballotEnabled").on("click",function(){
+		if($(this).is(":checked"))
+		{
+			$(".ballot").show();
+			$("#ballotOptions").append(ballotOptionHTML(0)).find("input[type=color]");
+			$("#ballotOptions").append(ballotOptionHTML(1)).find("input[type=color]").spectrum();
+		}
+		else
+		{
+			$(".ballot").hide();
+			$("#ballotOptions").empty();
+			$("#chartSelect").val("");
+		}
+	});
+	
+	$("#addBallotOption").on("click",function(){
+		$("#ballotOptions").append(ballotOptionHTML($("#ballotOptions li").length));
+		console.log($("#ballotOptions li").length);
+		$('#ballotOption_' + ($("#ballotOptions li").length -1)).find("input[type=color]").spectrum();
+	});
+	
+	//on load get all Questions/Answers, set up some form functionality
 	$(document).ready(function(){
 		getData(function(data){dispData(data)});
-		
+		$(".ballot").hide();
+		$("input[type=color]").spectrum();
 	});
+
+//----------------------
+//UI and data functionality
+//----------------------
+
+	function deleteOption(e) {
+		$("#ballotOptions li:eq(" + e + ")").remove();
+		for(var x = 0; x < $("#ballotOptions li").length; x++)
+		{
+			$("#ballotOptions li")[x].id = 'ballotOption_' + x;
+			$("#ballotOptions li:eq(" + x + ")").find("input[type=button]")[0].setAttribute('onclick','deleteOption(' + x + ')');
+		}
+	}
+
+	//pop up loader and retrieve json data from API. Use callback to redraw data
 	function getData(callback) {
 		$("#loader").css("display","block");
 		$("#loader").css("opacity",".5");
@@ -208,11 +279,18 @@ var dataGlobal = ''; //global set by ajax callbacks.
 			callback(data)}
 			});
 	}
+	
+	//This is typically called by getData as a callback and redraws the data in the admin panel.
 	function dispData(data)
 	{
 		$("#inactiveQATab").empty();
 		$("#activeQATab").empty();
 		$("#previewSelect").html("<option value='' selected>(new question)</option>");
+		$("#ballotEnabled").prop('checked', false);
+		$("#commentsDisabled").prop('checked', false);
+		$(".ballot").hide();
+		$("#ballotOptions").empty();
+		$("textarea[name=question]").val("");
 		for(var x = 0; x < data.length; x++)
 		{
 			var target = "#inactiveQATab";
@@ -244,35 +322,8 @@ var dataGlobal = ''; //global set by ajax callbacks.
 			}
 			$("#previewSelect").append("<option value='" + data[x]._id + "'>" + data[x].question + "</option>")
 			$(target).append("<div class='answers' id='" + data[x]._id + "'>" + answers + "</div>");
-			/*
-			var table = document.createElement("table")
-			var headRow = "<tr><th><button onclick='exportCSV(&quot;" + data[x]._id + "&quot;)'>Export Results (.csv)</button><br>"
-			if(data[x].active && data[x].active === "true")
-			{
-				table.className = "activeQ"
-				headRow += "<em style='color:red;font-weight:bold;'>Active Question</em></th><th>"
-			}
-			else
-			{
-				headRow += "<button onclick='activate(&quot;" + data[x]._id + "&quot;)'>Activate Question</button><br><button onclick='delQ(&quot;" + data[x]._id + "&quot;)'>Delete Question</button></th><th>"
-			}
-			headRow += data[x].question + "<br>"
-			if(data[x].image)
-			{
-				headRow += "<img src='" + data[x].image.path + "'>"
-			}
-			headRow += "</th><th>" + new Date(data[x].date) + "</th></tr>"
-			$(table).append(headRow)
-			$(table).append("<tr><th></th><th>Answers</th><th>Timestamp</td></tr>")
-			for(a in data[x].thoughts)
-			{
-				$(table).append("<tr><td><button onclick='edit(&quot;" + data[x].thoughts[a]._id + "&quot;)'>Edit</button><button onclick='del(&quot;" + data[x].thoughts[a]._id + "&quot;)'>Delete</button></td><td id=" + data[x].thoughts[a]._id + ">" + data[x].thoughts[a].message + "</td><td>" + new Date(data[x].thoughts[a].timeStamp) + "</td></tr>")
-			}
-			*/
-			//$("#qaTable").prepend(table)
 		}
 		$(".question *").css("font-size","1em")
-		//$( "#qaTable" ).accordion();
 		$( "#tabs" ).tabs();
 		$("#inactiveQATab").accordion({collapsible:true}).accordion( "refresh" );
 		$(".activateMenu").on("click", function(e){
@@ -291,6 +342,98 @@ var dataGlobal = ''; //global set by ajax callbacks.
 		$("#loader").css("display","none");
 		$("#notifier").css("display","none");
 	}
+	
+	//Handles iframe previews of questions in edit/add question panel
+	function preview(id)
+	{
+		//first reset things
+		$("#ballotEnabled").prop('checked', false);
+		$("#commentsDisabled").prop('checked', false);
+		$(".ballot").hide();
+		$("#ballotOptions").empty();
+		$("textarea[name=question]").val("");
+		
+		if(id)
+		{
+		$("#tabs").tabs("option", "active", 2);
+		$("#previewSelect").val(id)
+		$("#displayPreviewFrame").attr("src","/app?preview="+id);
+		$("#kioskPreviewFrame").attr("src","/kiosk?preview="+id);
+		for(x in dataGlobal)
+		{
+			if(dataGlobal[x]._id == id)
+			{
+				console.log(dataGlobal[x])
+				$("textarea[name=question]").val(dataGlobal[x].question);
+				if(dataGlobal[x].bgcolor)
+				{
+					$("input[name=bgcolor]").spectrum({color:dataGlobal[x].bgcolor});
+				}
+				else
+				{
+					$("input[name=bgcolor]").spectrum({color:'#b3553f'});
+				}
+				if(dataGlobal[x].chart || dataGlobal[x].voteOptions)
+				{
+					$("#ballotEnabled").prop('checked', true);
+					if(dataGlobal[x].commentsDisabled)
+					{
+						$("#commentsDisabled").prop('checked', true);
+					}
+					$(".ballot").show();
+					if(dataGlobal[x].chart)
+					{
+						$("#chartSelect").val(dataGlobal[x].charttype);
+					}
+					else
+					{
+						$("#chartSelect").val("");
+					}
+					for(var z = 0; z < dataGlobal[x].voteOptions.length; z++)
+					{
+						$("#ballotOptions").append(ballotOptionHTML(z,dataGlobal[x].voteOptions[z].name,dataGlobal[x].voteOptions[z].color)).find("input[type=color]").spectrum();
+					}
+				}
+				else
+				{
+					$("#ballotEnabled").prop('checked', false);
+				}
+				if(dataGlobal[x].image)
+				{
+					$("#imageLabel").html("Current Image: " + dataGlobal[x].image.originalname + " Upload new file to replace. No action retains file. ");
+				}
+				else
+				{
+					$("#imageLabel").html("No Image for this question. Upload to add one if you wish.");
+				}
+				if(dataGlobal[x].video)
+				{
+					$("#videoLabel").html("Current Video: " + dataGlobal[x].video.originalname + " Upload new file to replace. No action retains file. ");
+				}
+				else
+				{
+					$("#videoLabel").html("No video for this question. Upload to add one if you wish. You must also add a placeholder/thumbnail image in the image upload.");
+				}
+			}
+		}
+		}
+		else
+		{
+			$("#displayPreviewFrame").attr("src","");	
+			$("#kioskPreviewFrame").attr("src","");	
+			$("input[name=bgcolor]").spectrum({color:'#b3553f'});
+			$("textarea[name=question]").val("");
+			$("#imageLabel").html("Media (Image or video placeholder thumbnail): ");
+			$("#videoLabel").html("Media (Video): ");
+		}
+	}
+	
+	
+//----------------------------
+//API HELPER FUNCTIONS - These help interact with the RESTful endpoints to add/edit/delete questions and answers
+//----------------------------
+
+	//Edit an answer/comment. Argument is answer ObjectID
 	function edit(aID)
 	{
 		var msg = prompt("Enter edited answer", document.getElementById(aID).innerHTML)
@@ -303,6 +446,8 @@ var dataGlobal = ''; //global set by ajax callbacks.
 				}
 			})
 	}
+	
+	//Delete an answer/comment. Argument is answer ObjectID
 	function del(aID)
 	{
 		var conf = confirm("Are you sure you want to delete this answer?")
@@ -318,6 +463,50 @@ var dataGlobal = ''; //global set by ajax callbacks.
 			})
 		}
 	}
+	
+	//Delete a question. Argument is the question ObjectID.
+	function delQ(qID)
+	{
+		var conf = confirm("Are you sure you want to delete this question and all answers?")
+		if(conf == true)
+		{
+		$.ajax({
+			url:"/admin/question/delete?id=" + qID,
+			success:function(d){
+					console.log(d)
+					getData(function(data){
+						dispData(data)
+					});	
+				}
+			})
+		}
+	}
+	
+	//Export the results of a Question/Answer set as a CSV.
+	function exportCSV(qID){
+		window.open("/admin/question/export.csv?id=" + qID,"_blank")
+	}
+	
+	//Toggle the suppression boolean of a Answer/comment. Argument is the answer's ObjectID and the CURRENT state that will in turn be reversed.
+	function toggleSuppress(id,curState)
+	{
+		var url = "/suppress/" + id //default is unsuppressed needing to be suppressed.
+		if(curState)//if already suppressed, unsupress
+		{
+			url = "/admin/unsuppress/" + id
+		}
+		$.ajax({
+			url:url,
+			success:function(d){
+					console.log(d)
+					getData(function(data){
+						dispData(data)
+					});	
+				}
+			})
+	}
+	
+	//Edit a question. Argument is the form data in edit tab plus a callback.
 	function editQ(fdata,callback)
 	{
 		//var q = prompt("Enter a new Question")
@@ -362,60 +551,10 @@ var dataGlobal = ''; //global set by ajax callbacks.
 				}
 			})
 	}
-	function delQ(qID)
-	{
-		var conf = confirm("Are you sure you want to delete this question and all answers?")
-		if(conf == true)
-		{
-		$.ajax({
-			url:"/admin/question/delete?id=" + qID,
-			success:function(d){
-					console.log(d)
-					getData(function(data){
-						dispData(data)
-					});	
-				}
-			})
-		}
-	}
-	function exportCSV(qID){
-		window.open("/admin/question/export.csv?id=" + qID,"_blank")
-		/*
-		$.ajax({
-			url:"/admin/question/export?id=" + qID,
-			success:function(d){
-					console.log(d)
-				}
-			})
-		*/
-	}
-	
-	function toggleSuppress(id,curState)
-	{
-		var url = "/suppress/" + id //default is unsuppressed needing to be suppressed.
-		if(curState)//if already suppressed, unsupress
-		{
-			url = "/admin/unsuppress/" + id
-		}
-		$.ajax({
-			url:url,
-			success:function(d){
-					console.log(d)
-					getData(function(data){
-						dispData(data)
-					});	
-				}
-			})
-	}
-	function showDialog(){
-		document.getElementById("dialog").style.animationName = "showDialog";
-	}
-	function hideDialog() {
-		document.getElementById("dialog").style.animationName = "hideDialog";
-	}
+
+	//Create a new question. Argument is the form data in edit tab plus a callback.
 	function addQuestion(fdata,callback)
 	{
-		//var q = prompt("Enter a new Question")
 		var data = new FormData(fdata);
 		console.log(data)
 		$("#loader").css("display","block");
@@ -455,57 +594,8 @@ var dataGlobal = ''; //global set by ajax callbacks.
 				}
 			})
 	}
-	function preview(id)
-	{
-		if(id)
-		{
-		$("#tabs").tabs("option", "active", 2);
-		$("#previewSelect").val(id)
-		$("#displayPreviewFrame").attr("src","/app?preview="+id);
-		$("#kioskPreviewFrame").attr("src","/kiosk?preview="+id);
-		for(x in dataGlobal)
-		{
-			if(dataGlobal[x]._id == id)
-			{
-				console.log(dataGlobal[x])
-				$("textarea[name=question]").val(dataGlobal[x].question);
-				if(dataGlobal[x].bgcolor)
-				{
-					$("input[name=bgcolor]").val(dataGlobal[x].bgcolor);
-				}
-				else
-				{
-					$("input[name=bgcolor]").val('#b3553f');
-				}
-				if(dataGlobal[x].image)
-				{
-					$("#imageLabel").html("Current Image: " + dataGlobal[x].image.originalname + " Upload new file to replace. No action retains file. ");
-				}
-				else
-				{
-					$("#imageLabel").html("No viceo for this question. Upload to add one if you wish.");
-				}
-				if(dataGlobal[x].video)
-				{
-					$("#videoLabel").html("Current Video: " + dataGlobal[x].video.originalname + " Upload new file to replace. No action retains file. ");
-				}
-				else
-				{
-					$("#videoLabel").html("No video for this question. Upload to add one if you wish. You must also add a placeholder/thumbnail image in the image upload.");
-				}
-			}
-		}
-		}
-		else
-		{
-			$("#displayPreviewFrame").attr("src","");	
-			$("#kioskPreviewFrame").attr("src","");	
-			$("input[name=bgcolor]").val('#b3553f');
-			$("textarea[name=question]").val("");
-			$("#imageLabel").html("Media (Image or video placeholder thumbnail): ");
-			$("#videoLabel").html("Media (Video): ");
-		}
-	}
+	
+	//Activate question for the system to display on all displays/kiosk clients. This also means all other questions are set to inactive.
 	function activate(id)
 	{
 		$.ajax({

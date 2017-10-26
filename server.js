@@ -1,6 +1,7 @@
 //Init here to start up the Comment Wall service: node server.js
 
 //GLOBALS
+	var extend = require('util')._extend;
 	var express = require('express');
 	var multer = require('multer');
 	var app = express();
@@ -166,12 +167,11 @@
 		});
 	}
 
-	function newAnswer(q,a,ts,id,callback) { //q is the querying/find object to select the question.
-	//a is the new answer to insert in list. ts is timestamp, id is new ObjectID() called.
+	function newAnswer(q,a,callback) { //q is the querying/find object to select the question. a is the answer object with message, timestamp, id and voting if applicable.
 		MongoClient.connect(DBurl, function(err,db){
 			var collection = db.collection("QAs");
 			var success = true
-			collection.update(q,{"$addToSet":{"thoughts" : {"message" : a ,"timeStamp" : ts, "_id" : id}}},function(err,docs){
+			collection.update(q,{"$addToSet":{"thoughts" : a}},function(err,docs){
 				if(err)
 				{
 					console.log(err);
@@ -386,23 +386,40 @@
 	uploadFields = uploads.fields([{name:'image',maxCount:1},{name:"video",maxCount:1}])
 	app.post('/admin/question/add', uploadFields,function(req,res){
 				var now = new Date();
-                                var Obj = {
+				var Obj = {
 					"question":req.body.question,
 					"date":now,
 					"active":false,
 				}
-                                if(req.files['image'])
-                                {
-                                        Obj.image = req.files['image'][0];
-                                }
-                                if(req.files['video'])
-                                {
-                                        Obj.video = req.files['video'][0];
-                                }
-                                if(req.body.bgcolor)
-                                {
-                                        Obj.bgcolor = req.body.bgcolor;
-                                }
+				if(req.files['image'])
+				{
+						Obj.image = req.files['image'][0];
+				}
+				if(req.files['video'])
+				{
+						Obj.video = req.files['video'][0];
+				}
+				if(req.body.bgcolor)
+				{
+						Obj.bgcolor = req.body.bgcolor;
+				}
+				if(req.body.ballotOption)
+				{
+					Obj.voteOptions = [];
+					for(var x = 0; x < req.body.ballotOption.length; x++)
+					{
+						Obj.voteOptions.push({name:req.body.ballotOption[x],color:req.body.ballotOptionColor[x]})
+					}
+					if(req.body.chart)
+					{
+						Obj.chart = true;
+						Obj.charttype = req.body.chart;
+					}
+				}
+				if(req.body.commentsDisabled)
+				{
+					updateObj.commentsDisabled = true;
+				}
 				newQuestion(Obj,function(success){
 					if(success)
 					{
@@ -415,11 +432,11 @@
 	app.post('/admin/question/edit/:id', uploadFields,function(req,res){
 				var now = new Date();
 				var updateObj = {}
-				if(req.files['image'][0])
+				if(req.files['image'])
 				{
 					updateObj.image = req.files['image'][0];
 				}
-				if(req.files['video'][0])
+				if(req.files['video'])
 				{
 					updateObj.video = req.files['video'][0];
 				}
@@ -430,6 +447,23 @@
 				if(req.body.bgcolor)
 				{
 					updateObj.bgcolor = req.body.bgcolor;
+				}
+				if(req.body.ballotOption)
+				{
+					updateObj.voteOptions = [];
+					for(var x = 0; x < req.body.ballotOption.length; x++)
+					{
+						updateObj.voteOptions.push({name:req.body.ballotOption[x],color:req.body.ballotOptionColor[x]})
+					}
+					if(req.body.chart)
+					{
+						updateObj.chart = true;
+						updateObj.charttype = req.body.chart;
+					}
+				}
+				if(req.body.commentsDisabled)
+				{
+					updateObj.commentsDisabled = true;
 				}
 				//res.json(updateObj);
 				editQuestion(req.params.id,updateObj,function(success,results){
@@ -526,13 +560,22 @@
 	io.on('connection', function(socket){
 		io.emit('data',JSON.stringify(query));
 		socket.on('submit', function(submission){
-			var thought = getCoordVect({vector:{},_id:new ObjectID(),message:submission.message})
+			var thought = getCoordVect({vector:{},_id:new ObjectID(),message:submission.message,vote:submission.vote})
 			//override random start assingment and put in center of screen for viewability by user.
 			//still maintain the X and Y axis float vectors
 			thought.x = 50;
 			thought.y = 50;
 			console.log(thought)
-			newAnswer({"_id":query._id},submission.message,new Date(),thought._id,function(){
+			var ansObj = {"timeStamp" : new Date(), "_id" : thought._id}
+			if(submission.message)
+			{
+				ansObj.message = submission.message;
+			}
+			if(submission.vote)
+			{
+				ansObj.vote = submission.vote;
+			}
+			newAnswer({"_id":query._id},ansObj,function(){
 				query.thoughts.push(thought);
 				io.emit('newThought',JSON.stringify(thought))
 			});
@@ -568,16 +611,22 @@
 function setupQuestionAnswers() {
 getActiveQA(function(QA){
 	console.log("Using question id " + QA._id + ". Question: " + QA.question)
-	query = {"question":QA.question,"image":QA.image,"_id":QA._id,"thoughts":[],"suppressed":[]};
+	// query = {"question":QA.question,"image":QA.image,"_id":QA._id,"thoughts":[],"suppressed":[]};
+	//copy (not reference!) resulting obj to the global var query that stores all current data.
+	query = extend({},QA);
+	query.thoughts = [];//empty out thoughts and create suppressed list so we can sort that out fromthe raw data.
+	query.suppressed = [];
 	for(x in QA.thoughts)
 	{
+		var thoughtObj = extend({},QA.thoughts[x]);
+		thoughtObj.vector = {};
 		if(QA.thoughts[x].suppressed)
 		{
-			query.suppressed.push(getCoordVect({vector:{},_id:QA.thoughts[x]._id,message:QA.thoughts[x].message}))	
+			query.suppressed.push(getCoordVect(thoughtObj))	
 		}
 		else
 		{
-			query.thoughts.push(getCoordVect({vector:{},_id:QA.thoughts[x]._id,message:QA.thoughts[x].message}))
+			query.thoughts.push(getCoordVect(thoughtObj))
 		}
 	}
 	io.emit('data',JSON.stringify(query))
@@ -586,6 +635,6 @@ getActiveQA(function(QA){
 setupQuestionAnswers();
 setInterval(function(){animateUpdate()},5000);
 
-http.listen(8000, function(){
-  console.log('listening on *:8000');
+http.listen(80, function(){
+  console.log('listening on *:80');
 });
